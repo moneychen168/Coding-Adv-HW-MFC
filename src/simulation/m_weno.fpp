@@ -895,7 +895,10 @@ contains
         integer, intent(in)                                                                    :: weno_dir
         type(int_bounds_info), intent(in)                                                      :: is1_weno_d, is2_weno_d, is3_weno_d
 
-        #:if not MFC_CASE_OPTIMIZATION and USING_AMD
+        ! Without case optimization weno_polyn and weno_num_stencils are run-time values, and private arrays with run-time
+        ! extents become per-thread device-memory temporaries in the GPU kernels. Use the maximum (WENO7/TENO7) extents so
+        ! the work arrays have compile-time sizes; unused trailing entries stay zero (alpha) or are never read.
+        #:if not MFC_CASE_OPTIMIZATION
             real(wp), dimension(-3:2) :: dvd
             real(wp), dimension(0:4)  :: poly
             real(wp), dimension(0:4)  :: alpha

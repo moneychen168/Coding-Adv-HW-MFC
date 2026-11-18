@@ -2022,6 +2022,12 @@ contains
         integer, intent(in) :: norm_dir
         integer :: recon_dir  !< Coordinate direction of the reconstruction
         integer :: i, j, k, l
+        logical :: trim_transverse
+
+        ! The Riemann solvers only read the reconstructed states at interior transverse indices (0:n, 0:p in the directions
+        ! normal to the sweep), so reconstructing the transverse ghost layers is dead work. The full buffered range is kept for
+        ! the configurations whose other consumers (viscous, surface tension, interface compression) were not audited.
+        trim_transverse = .not. (viscous .or. surface_tension .or. int_comp > 0)
 
         #:for SCHEME, TYPE in [('weno','recon_type_weno'), ('muscl','recon_type_muscl')]
             if (recon_type == ${TYPE}$) then
@@ -2030,14 +2036,23 @@ contains
                     is1 = idwbuff(1); is2 = idwbuff(2); is3 = idwbuff(3)
                     recon_dir = 1; is1%beg = is1%beg + ${SCHEME}$_polyn
                     is1%end = is1%end - ${SCHEME}$_polyn
+                    if (trim_transverse) then
+                        is2 = idwint(2); is3 = idwint(3)
+                    end if
                 else if (norm_dir == 2) then
                     is1 = idwbuff(2); is2 = idwbuff(1); is3 = idwbuff(3)
                     recon_dir = 2; is1%beg = is1%beg + ${SCHEME}$_polyn
                     is1%end = is1%end - ${SCHEME}$_polyn
+                    if (trim_transverse) then
+                        is2 = idwint(1); is3 = idwint(3)
+                    end if
                 else
                     is1 = idwbuff(3); is2 = idwbuff(2); is3 = idwbuff(1)
                     recon_dir = 3; is1%beg = is1%beg + ${SCHEME}$_polyn
                     is1%end = is1%end - ${SCHEME}$_polyn
+                    if (trim_transverse) then
+                        is2 = idwint(2); is3 = idwint(1)
+                    end if
                 end if
 
                 call s_${SCHEME}$ (v_vf(iv%beg:iv%end), vL_x(:,:,:,iv%beg:iv%end), vR_x(:,:,:,iv%beg:iv%end), recon_dir, is1, &

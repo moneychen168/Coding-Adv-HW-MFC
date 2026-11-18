@@ -918,7 +918,7 @@ contains
         integer                   :: i, j, k, l, q
         real(wp)                  :: vp0, vp1, vp2, vp3, vm1, vm2, vm3
         real(wp)                  :: dvd_0, dvd_m1, poly_0, poly_1, beta_0, beta_1, alpha_0, alpha_1, omega_0, omega_1
-        real(wp)                  :: alpha_sum, d_0, d_1
+        real(wp)                  :: alpha_sum, d_0, d_1, beta_sq_0, beta_sq_1, map_num_0, map_num_1, map_den_0, map_den_1
 
         is1_weno = is1_weno_d
         is2_weno = is2_weno_d
@@ -990,7 +990,8 @@ contains
                 #:set SF = lambda offs: COORDS.format(STENCIL_IDX = SV + offs)
                 if (weno_dir == ${WENO_DIR}$) then
                     $:GPU_PARALLEL_LOOP(collapse=4,private='[i, j, k, l, tau, vp0, vp1, vm1, dvd_0, dvd_m1, poly_0, poly_1, &
-                                        & beta_0, beta_1, alpha_0, alpha_1, omega_0, omega_1, alpha_sum, d_0, d_1]')
+                                        & beta_0, beta_1, alpha_0, alpha_1, omega_0, omega_1, alpha_sum, d_0, d_1, &
+                                        & beta_sq_0, beta_sq_1, map_num_0, map_num_1, map_den_0, map_den_1]')
                     do i = 1, v_size
                         do l = ${Z_BND}$%beg, ${Z_BND}$%end
                             do k = ${Y_BND}$%beg, ${Y_BND}$%end
@@ -1013,6 +1014,8 @@ contains
 
                                     beta_0 = beta_coef_${XYZ}$ (${SV}$, 0, 0)*dvd_0*dvd_0 + weno_eps
                                     beta_1 = beta_coef_${XYZ}$ (${SV}$, 1, 0)*dvd_m1*dvd_m1 + weno_eps
+                                    beta_sq_0 = beta_0*beta_0
+                                    beta_sq_1 = beta_1*beta_1
 
                                     #:for SIDE in ['L', 'R']
                                         #:if SIDE == 'R'
@@ -1025,30 +1028,38 @@ contains
                                         d_0 = d_cb${SIDE}$_${XYZ}$ (0, ${SV}$)
                                         d_1 = d_cb${SIDE}$_${XYZ}$ (1, ${SV}$)
 
+                                        ! The nonlinear weights are ratios of the alphas, so each alpha_q = (numerator_q)/(denominator_q)
+                                        ! is carried in cross-multiplied form and one reciprocal replaces the per-stencil
+                                        ! divisions (16 -> 4 divisions per cell and variable for mapped WENO). Algebraically
+                                        ! identical to the textbook form; results differ only by floating-point round-off.
                                         if (wenojs) then
-                                            alpha_0 = d_0/(beta_0**2._wp)
-                                            alpha_1 = d_1/(beta_1**2._wp)
+                                            ! alpha_q = d_q/beta_q**2
+                                            alpha_0 = d_0*beta_sq_1
+                                            alpha_1 = d_1*beta_sq_0
                                         else if (mapped_weno) then
-                                            alpha_0 = d_0/(beta_0**2._wp)
-                                            alpha_1 = d_1/(beta_1**2._wp)
-                                            alpha_sum = alpha_0 + alpha_1
-                                            omega_0 = alpha_0/alpha_sum
-                                            omega_1 = alpha_1/alpha_sum
-                                            alpha_0 = (d_0*(1._wp + d_0 - 3._wp*omega_0) + omega_0**2._wp)*(omega_0/(d_0**2._wp &
-                                                       & + omega_0*(1._wp - 2._wp*d_0)))
-                                            alpha_1 = (d_1*(1._wp + d_1 - 3._wp*omega_1) + omega_1**2._wp)*(omega_1/(d_1**2._wp &
-                                                       & + omega_1*(1._wp - 2._wp*d_1)))
+                                            alpha_0 = d_0*beta_sq_1
+                                            alpha_1 = d_1*beta_sq_0
+                                            alpha_sum = 1._wp/(alpha_0 + alpha_1)
+                                            omega_0 = alpha_0*alpha_sum
+                                            omega_1 = alpha_1*alpha_sum
+                                            ! Henrick et al. (2005) mapping: alpha_q = map_num_q/map_den_q, map_den_q > 0
+                                            map_num_0 = (d_0*(1._wp + d_0 - 3._wp*omega_0) + omega_0*omega_0)*omega_0
+                                            map_num_1 = (d_1*(1._wp + d_1 - 3._wp*omega_1) + omega_1*omega_1)*omega_1
+                                            map_den_0 = d_0*d_0 + omega_0*(1._wp - 2._wp*d_0)
+                                            map_den_1 = d_1*d_1 + omega_1*(1._wp - 2._wp*d_1)
+                                            alpha_0 = map_num_0*map_den_1
+                                            alpha_1 = map_num_1*map_den_0
                                         else if (wenoz) then
-                                            ! Borges, et al. (2008)
+                                            ! Borges, et al. (2008): alpha_q = d_q*(1 + tau/beta_q) = d_q*(beta_q + tau)/beta_q
                                             #:if SIDE == 'L'
                                                 tau = abs(beta_1 - beta_0)
                                             #:endif
-                                            alpha_0 = d_0*(1._wp + tau/beta_0)
-                                            alpha_1 = d_1*(1._wp + tau/beta_1)
+                                            alpha_0 = d_0*(beta_0 + tau)*beta_1
+                                            alpha_1 = d_1*(beta_1 + tau)*beta_0
                                         end if
-                                        alpha_sum = alpha_0 + alpha_1
-                                        omega_0 = alpha_0/alpha_sum
-                                        omega_1 = alpha_1/alpha_sum
+                                        alpha_sum = 1._wp/(alpha_0 + alpha_1)
+                                        omega_0 = alpha_0*alpha_sum
+                                        omega_1 = alpha_1*alpha_sum
 
                                         v${SIDE}$_rs_vf_x(j, k, l, i) = omega_0*poly_0 + omega_1*poly_1
                                     #:endfor

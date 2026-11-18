@@ -55,7 +55,15 @@ exit 0
 	        $<$<COMPILE_LANGUAGE:Fortran>:-Minline>
     	)
         add_dependencies(${ARGS_TARGET} ${ARGS_TARGET}_lib)
-        target_compile_options(${ARGS_TARGET} PRIVATE -Minline=lib:${ARGS_TARGET}_lib,except:f_is_default,except:s_compute_dt,except:my_inquire,except:s_mpi_abort,except:s_mpi_barrier,except:s_prohibit_abort,except:s_int_to_str,except:s_associate_cbc_coefficients_pointers)
+        # Cross-file inlining budget for the GPU target: with nvfortran's default size limits the inliner stops
+        # partway through the very large Riemann-solver routines (one subroutine holds every HLLC kernel), so most
+        # GPU kernels keep device-side calls to small EOS/state helpers (call ABI + local-memory argument traffic).
+        # Raising totalsize/maxsize lets those helpers be inlined. Host-only targets keep the defaults.
+        set(_mfc_inline_limits "")
+        if (ARGS_OpenACC AND MFC_OpenACC)
+            set(_mfc_inline_limits ",totalsize:200000,maxsize:5000")
+        endif()
+        target_compile_options(${ARGS_TARGET} PRIVATE -Minline=lib:${ARGS_TARGET}_lib,except:f_is_default,except:s_compute_dt,except:my_inquire,except:s_mpi_abort,except:s_mpi_barrier,except:s_prohibit_abort,except:s_int_to_str,except:s_associate_cbc_coefficients_pointers${_mfc_inline_limits})
 
         # Exclude these files from cross-file inlining. GPU hot-path files
         # (m_rhs, m_riemann_solvers, m_viscous, m_weno, etc.) keep full IPO.

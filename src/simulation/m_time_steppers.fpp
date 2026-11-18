@@ -502,11 +502,15 @@ contains
             end if
 
             if (bubbles_lagrange .and. .not. adap_dt) call s_update_lagrange_tdv_rk(q_prim_vf, bc_type, stage=s)
-            $:GPU_PARALLEL_LOOP(collapse=4)
-            do i = 1, sys_size
-                do l = 0, p
-                    do k = 0, n
-                        do j = 0, m
+            ! One thread per cell with a sequential loop over the equations (instead of one thread per cell and
+            ! equation): each thread keeps sys_size independent load streams in flight, and the per-element
+            ! derived-type index arithmetic is amortized. Same arithmetic per element, so results are unchanged.
+            $:GPU_PARALLEL_LOOP(collapse=3)
+            do l = 0, p
+                do k = 0, n
+                    do j = 0, m
+                        $:GPU_LOOP(parallelism='[seq]')
+                        do i = 1, sys_size
                             if (s == 1 .and. nstage > 1) then
                                 q_cons_ts(stor)%vf(i)%sf(j, k, l) = q_cons_ts(1)%vf(i)%sf(j, k, l)
                             end if

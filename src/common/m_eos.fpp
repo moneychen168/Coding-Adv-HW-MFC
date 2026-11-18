@@ -589,7 +589,7 @@ contains
             pi_inf_K = pi_infs(1)
             ! Energy per unit volume, as below: alpha_rho_K(1) is the liquid partial density
             qv_K = alpha_rho_K(1)*qvs(1)
-        else
+        else if (any_state_dependent_eos) then
             rho_K = 0._wp
             gamma_K = 0._wp
             pi_inf_K = 0._wp
@@ -603,6 +603,22 @@ contains
                 call s_phase_coefficients(alpha_rho_i, alpha_i, i, rho_i, gamma_i, pi_inf_i, dpi_i, dgamma_i)
                 gamma_K = gamma_K + alpha_K(i)*gamma_i
                 pi_inf_K = pi_inf_K + alpha_K(i)*pi_inf_i
+                qv_K = qv_K + alpha_rho_K(i)*qvs(i)
+            end do
+        else
+            ! Stiffened-gas phases: the coefficients are the constants s_phase_coefficients would return, so the
+            ! per-phase density division (rho_i, only read by state-dependent EOS) and the call chain are skipped.
+            ! Same accumulation order as above.
+            rho_K = 0._wp
+            gamma_K = 0._wp
+            pi_inf_K = 0._wp
+            qv_K = 0._wp
+
+            $:GPU_LOOP(parallelism='[seq]')
+            do i = 1, num_fluids
+                rho_K = rho_K + alpha_rho_K(i)
+                gamma_K = gamma_K + alpha_K(i)*gammas(i)
+                pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
                 qv_K = qv_K + alpha_rho_K(i)*qvs(i)
             end do
         end if

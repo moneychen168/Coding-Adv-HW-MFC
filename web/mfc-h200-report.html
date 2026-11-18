@@ -1,0 +1,254 @@
+<title>MFC H200 優化報告</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (max 60rem), summary figures first, then evidence tables and bar charts drawn to one scale. */
+:root{
+  --bg:#f5f7f6; --surface:#ffffff; --fg:#14201c; --muted:#5a6a64; --line:#d3dcd8;
+  --accent:#0b6e5a; --accent-soft:#dcefe9; --base:#9a5a14; --warn:#a23b2a;
+  --k1:#0b6e5a; --k2:#c27a1a; --k3:#3f6fb5; --k4:#8a5aa8; --k5:#b0473a; --k6:#7b8a84;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-disp:"Space Grotesk","Noto Sans TC",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1513; --surface:#151e1b; --fg:#e3ebe7; --muted:#93a39c; --line:#27342f;
+  --accent:#55cfae; --accent-soft:#163129; --base:#e6a35a; --warn:#ef8a78;
+  --k1:#55cfae; --k2:#e6a35a; --k3:#7fa8e6; --k4:#b993d6; --k5:#e58374; --k6:#8b9a94; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1513; --surface:#151e1b; --fg:#e3ebe7; --muted:#93a39c; --line:#27342f;
+  --accent:#55cfae; --accent-soft:#163129; --base:#e6a35a; --warn:#ef8a78;
+  --k1:#55cfae; --k2:#e6a35a; --k3:#7fa8e6; --k4:#b993d6; --k5:#e58374; --k6:#8b9a94; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.75;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:2.5rem 4rem}
+main{max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:2.75rem}
+section{display:flex;flex-direction:column;gap:1rem;min-width:0}
+h1,h2,h3{font-family:var(--f-disp);line-height:1.25;text-wrap:balance;margin:0}
+h1{font-size:clamp(1.9rem,5vw,2.9rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700;padding-top:1.25rem;border-top:2px solid var(--fg)}
+h3{font-size:1.05rem;font-weight:700}
+p,ul,ol{margin:0;max-width:44rem}
+ul,ol{padding-left:1.3rem;display:flex;flex-direction:column;gap:.35rem}
+a{color:var(--accent);text-underline-offset:3px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--accent-soft);padding:.05em .35em;border-radius:3px;overflow-wrap:anywhere}
+.eyebrow{font-family:var(--f-mono);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:1.1rem;color:var(--muted)}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:0;border-block:1px solid var(--line)}
+.fig{padding:1.1rem 1rem 1.1rem 0;display:flex;flex-direction:column;gap:.2rem;min-width:0}
+.fig b{font-family:var(--f-disp);font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--accent)}
+.fig span{font-size:.9rem;color:var(--muted)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;font-variant-numeric:tabular-nums}
+th,td{padding:.55rem .8rem;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-weight:500;color:var(--muted);font-size:.82rem;white-space:nowrap}
+td.n,th.n{text-align:right;white-space:nowrap;font-family:var(--f-mono)}
+.chart{display:flex;flex-direction:column;gap:.55rem;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1.1rem}
+.chart h3{margin-bottom:.3rem}
+.row{display:grid;grid-template-columns:minmax(7rem,13rem) 1fr 3.6rem;gap:.7rem;align-items:center;font-size:.88rem}
+.track{height:1.15rem;background:var(--accent-soft);border-radius:2px;min-width:0;display:flex;overflow:hidden}
+.bar{height:100%;background:var(--accent)}
+.bar.b{background:var(--base)}
+.row .v{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.seg1{background:var(--k1)}.seg2{background:var(--k2)}.seg3{background:var(--k3)}.seg4{background:var(--k4)}.seg5{background:var(--k5)}.seg6{background:var(--k6)}
+.legend{display:flex;flex-wrap:wrap;gap:.35rem 1rem;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:2px;margin-right:.35rem;vertical-align:-1px}
+.note{font-size:.88rem;color:var(--muted)}
+.flag{color:var(--warn);font-weight:500}
+.slides{display:grid;grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:.8rem}
+.slides img{width:100%;height:auto;border:1px solid var(--line);border-radius:4px;display:block;background:var(--surface)}
+video{width:100%;max-width:100%;border:1px solid var(--line);border-radius:6px;background:#000}
+@media (max-width:520px){.row{grid-template-columns:1fr 3.4rem}.row .l{grid-column:1/-1}}
+</style>
+
+<main>
+<header style="display:flex;flex-direction:column;gap:.8rem">
+  <div class="eyebrow">Coding-Adv-HW · MFC v5.7.1 · NVIDIA H200 · 2026-11-18</div>
+  <h1>MFC 在 H200 上的 GPU kernel 優化</h1>
+  <p class="lede">對 MFC（Multi-component Flow Code，Fortran + OpenACC 的可壓縮多相流求解器）做原始碼層級優化。8 個 commit，主要測資快 1.75 倍，而且輸出與原版逐位元相同。</p>
+  <p class="note">程式碼：<a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/tree/hw-opt">github.com/moneychen168/Coding-Adv-HW-MFC</a>（分支 <code>hw-opt</code>；<a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/compare/hw-baseline...hw-opt">與原版的差異</a>）</p>
+</header>
+
+<section>
+  <div class="figs">
+    <div class="fig"><b>1.75×</b><span>主要測資，輸出逐位元相同</span></div>
+    <div class="fig"><b>1.29×</b><span>次要測資，輸出逐位元相同</span></div>
+    <div class="fig"><b>2.72×</b><span>再疊加上游 case-optimization</span></div>
+    <div class="fig"><b>3.63×</b><span>WENO3 kernel 本身</span></div>
+  </div>
+  <p class="note">度量是 MFC 自己印出的 grindtime：每格點、每條方程式、每次 RHS 計算花的奈秒數，越小越好。倍數皆為 baseline grindtime 除以該配置的 grindtime。</p>
+</section>
+
+<section>
+  <h2>測資與環境</h2>
+  <div class="scroll"><table>
+    <tr><th>項目</th><th>內容</th></tr>
+    <tr><td>程式</td><td>MFC v5.7.1（commit <code>ce4b191d</code>，標籤 <code>hw-baseline</code>）</td></tr>
+    <tr><td>硬體</td><td>國網 Nano，單顆 NVIDIA H200（141 GB），1 個 MPI rank</td></tr>
+    <tr><td>編譯</td><td>NVHPC 26.3，OpenACC，Release，雙精度</td></tr>
+    <tr><td>主要測資</td><td>官方 benchmark <code>5eq_rk3_weno3_hllc</code>：683×342×342 = 7,989 萬格、8 條方程式、60 步，GPU 記憶體 86.6 GB</td></tr>
+    <tr><td>次要測資</td><td>官方 benchmark <code>viscous_weno5_sgb_acoustic</code>：577×289×289 = 4,819 萬格、8 條方程式、40 步</td></tr>
+    <tr><td>與官方的差異</td><td>只改 <code>parallel_io=T</code>。官方設定每次存檔會把所有 3D 場寫成 ASCII 文字，200 萬格時就有 7.2 GB；不影響 grindtime</td></tr>
+    <tr><td>量測方法</td><td>同一節點、各配置交錯執行、各 3 次取中位數，共 24 次，沒有捨棄任何一次</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>結果</h2>
+  <div class="chart" role="img" aria-label="各配置相對 baseline 的加速倍數">
+    <h3>主要測資：相對 baseline 的加速倍數</h3>
+    <div class="row"><span class="l">baseline</span><div class="track"><div class="bar b" style="width:35.7%"></div></div><span class="v">1.00×</span></div>
+    <div class="row"><span class="l">逐位元版</span><div class="track"><div class="bar" style="width:62.6%"></div></div><span class="v">1.75×</span></div>
+    <div class="row"><span class="l">完整版（加 B3）</span><div class="track"><div class="bar" style="width:65.5%"></div></div><span class="v">1.83×</span></div>
+    <div class="row"><span class="l">baseline + case-opt</span><div class="track"><div class="bar b" style="width:71.8%"></div></div><span class="v">2.01×</span></div>
+    <div class="row"><span class="l">完整版 + case-opt</span><div class="track"><div class="bar" style="width:97.0%"></div></div><span class="v">2.72×</span></div>
+    <h3 style="margin-top:.8rem">次要測資</h3>
+    <div class="row"><span class="l">baseline</span><div class="track"><div class="bar b" style="width:35.7%"></div></div><span class="v">1.00×</span></div>
+    <div class="row"><span class="l">逐位元版</span><div class="track"><div class="bar" style="width:46.1%"></div></div><span class="v">1.29×</span></div>
+    <div class="row"><span class="l">完整版（加 B3）</span><div class="track"><div class="bar" style="width:46.1%"></div></div><span class="v">1.29×</span></div>
+    <p class="note">橫軸 0 到 2.8 倍，所有長條同一比例。棕色是未改動原始碼的配置，綠色含本作業的修改。</p>
+  </div>
+  <div class="scroll"><table>
+    <tr><th>測資</th><th>配置</th><th class="n">grindtime (ns)</th><th class="n">迴圈時間 (s)</th><th class="n">加速</th><th>輸出對 baseline</th></tr>
+    <tr><td>主要</td><td>baseline</td><td class="n">0.61386</td><td class="n">69.10</td><td class="n">1.000×</td><td>重跑逐位元相同</td></tr>
+    <tr><td>主要</td><td>逐位元版 <code>hw-opt-bitwise</code></td><td class="n">0.34998</td><td class="n">39.49</td><td class="n">1.754×</td><td>逐位元相同</td></tr>
+    <tr><td>主要</td><td>完整版 <code>hw-opt-full</code></td><td class="n">0.33472</td><td class="n">37.77</td><td class="n">1.834×</td><td><span class="flag">非逐位元</span>，見下方</td></tr>
+    <tr><td>主要</td><td>baseline + case-opt</td><td class="n">0.30540</td><td class="n">34.54</td><td class="n">2.010×</td><td>逐位元相同</td></tr>
+    <tr><td>主要</td><td>完整版 + case-opt</td><td class="n">0.22604</td><td class="n">25.60</td><td class="n">2.716×</td><td>與完整版相同</td></tr>
+    <tr><td>次要</td><td>baseline</td><td class="n">1.31108</td><td class="n">58.90</td><td class="n">1.000×</td><td>重跑逐位元相同</td></tr>
+    <tr><td>次要</td><td>逐位元版</td><td class="n">1.01565</td><td class="n">45.64</td><td class="n">1.291×</td><td>逐位元相同</td></tr>
+    <tr><td>次要</td><td>完整版</td><td class="n">1.01666</td><td class="n">45.65</td><td class="n">1.290×</td><td>逐位元相同</td></tr>
+  </table></div>
+  <ul>
+    <li><b>case-opt</b> 是 MFC 上游內建的 <code>--case-optimization</code>（把測資參數在編譯期寫死），不是本作業的修改，所以分開列。它單獨是 2.01 倍；本作業的修改疊在它上面再快 1.35 倍。</li>
+    <li>三次量測的離散：主要測資 baseline 0.25%，完整版 + case-opt 0.19%。</li>
+    <li>B3 在主要測資多 4.6%，在次要測資沒有增益，因為它只改 WENO3，而次要測資用 WENO5。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>時間花在哪裡</h2>
+  <p>優化前，GPU 在整個時間步迴圈內全程忙碌，host 端開銷可以忽略。WENO3 重建佔一半，但它的瓶頸不是記憶體頻寬（DRAM 利用率只有 6%），而是指令數：每格點每變數約 1,400 道指令。</p>
+  <div class="chart" role="img" aria-label="優化前後各 kernel 的 GPU 時間">
+    <h3>主要測資 10 步的 kernel 時間（nsys）</h3>
+    <div class="row"><span class="l">baseline</span><div class="track">
+      <div class="seg1" style="width:50.8%"></div><div class="seg2" style="width:31.6%"></div><div class="seg3" style="width:5.4%"></div><div class="seg4" style="width:4.1%"></div><div class="seg5" style="width:3.2%"></div><div class="seg6" style="width:4.9%"></div></div><span class="v">11.82 s</span></div>
+    <div class="row"><span class="l">完整版</span><div class="track">
+      <div class="seg1" style="width:14.0%"></div><div class="seg2" style="width:27.6%"></div><div class="seg3" style="width:5.4%"></div><div class="seg4" style="width:4.1%"></div><div class="seg6" style="width:4.3%"></div></div><span class="v">6.54 s</span></div>
+    <div class="legend">
+      <span><i class="seg1"></i>WENO3 6.01 → 1.65 s</span>
+      <span><i class="seg2"></i>HLLC 3.74 → 3.26 s</span>
+      <span><i class="seg3"></i>advection source 0.64 → 0.64 s</span>
+      <span><i class="seg4"></i>cons→prim 0.49 → 0.48 s</span>
+      <span><i class="seg5"></i>flux 複製 0.38 s → 移除</span>
+      <span><i class="seg6"></i>RK update 與其他</span>
+    </div>
+    <p class="note">兩列同一比例，滿寬為 11.82 秒。優化後 HLLC 變成最大熱點（49.9%）。</p>
+  </div>
+</section>
+
+<section>
+  <h2>做了哪些修改</h2>
+  <div class="scroll"><table>
+    <tr><th>代號</th><th>修改</th><th>為什麼有效</th><th class="n">單項增益</th><th>輸出</th></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/a40cc7bf">B1</a></td><td>WENO3 kernel 的 private 工作陣列改成純量；變數索引移到最外層</td><td>陣列尺寸是執行期變數時，OpenACC 會替每個 GPU 執行緒配置 device 記憶體暫存。光是固定尺寸就有 −11.5%</td><td class="n">−35.1%</td><td>逐位元</td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/41d8f973">B2</a></td><td>重建只掃橫向內部格點</td><td>Riemann solver 不讀橫向 ghost 層的重建值，那 7–8% 是白算的</td><td class="n">−1.1%</td><td>逐位元</td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/933e55ba">B3</a></td><td>WENO3 非線性權重每側只做一次倒數</td><td>mapped WENO3 每格每變數 16 次雙精度除法減為 4 次</td><td class="n">−3.6%</td><td><span class="flag">非逐位元</span></td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/af7470e6">B4</a></td><td>WENO5/7 工作陣列改用編譯期固定尺寸</td><td>和 B1 同一個病因，一行條件修改</td><td class="n">−32.2%（WENO5）</td><td>逐位元</td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/08cd3670">C1</a></td><td>HLLC 直接就地寫 flux</td><td>省掉每個方向一次整場複製</td><td class="n">−3.6%</td><td>逐位元</td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/83376dcc">C2</a></td><td>RK 更新改為每格一個執行緒</td><td>同一格的各方程式連續存取</td><td class="n">−0.7%</td><td>逐位元</td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/cfe89f99">C3</a></td><td>提高 nvfortran 跨檔 inline 上限（僅 GPU 目標）</td><td>預設值讓 inliner 在巨大的 HLLC 函式中途停手；device call 13 → 7</td><td class="n">−2.5%</td><td>逐位元</td></tr>
+    <tr><td><a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/commit/3ca84825">C4</a></td><td>混合係數計算加 stiffened-gas 捷徑</td><td>省掉只有狀態相依 EOS 才需要的每相除法</td><td class="n">−0.9%</td><td>逐位元</td></tr>
+  </table></div>
+  <p class="note">單項增益是各條線在較小網格（B：503×252×252；C：316×158×158）上的 A/B 量測，不能直接相加；合併後的數字以上方結果表為準。逐位元版包含 C1–C4、B1、B2、B4；完整版再加 B3。</p>
+  <h3>試過但沒採用</h3>
+  <ul>
+    <li>全域 <code>-gpu=maxregcount:128</code>：沒有增益（+0.08%）；只對單一檔案設上限則無法連結。</li>
+    <li>E1（HLLC 與 cons→prim 也改固定尺寸）：單線量測 −5.6%、逐位元相同、45 個測試通過，但合併開始時還沒驗證完，沒有放進最終版，也不在公開 repo 裡。</li>
+    <li>B5（WENO5 除法 28 → 4 次）：WENO5 版測資 −12.2%，非逐位元、沒跑 regression，只留成 patch。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>正確性</h2>
+  <ul>
+    <li>baseline 本身三次執行的輸出逐位元相同，所以每個修改都能直接用逐位元比對判斷。比對工具對刻意不同的輸出（第 0 步對第 60 步）會報出差異。</li>
+    <li>逐位元版、baseline + case-opt 在兩個測資的最終步輸出都與 baseline 逐位元相同。</li>
+    <li>完整版在主要測資<b>不是</b>逐位元相同（來自 B3）。以場最大值正規化的最大差是 6.2e-11（y/z 動量）；逐點相對差最大 3.4e-6，出現在動量過零點附近；能量 1.9e-10，密度與體積分率不超過 5.3e-8。</li>
+    <li>每個優化配置自己三次之間逐位元可重現。</li>
+  </ul>
+  <div class="scroll"><table>
+    <tr><th>MFC regression 子集（完整版，GPU）</th><th class="n">通過</th></tr>
+    <tr><td><code>riemann_solver=2</code></td><td class="n">45 / 45</td></tr>
+    <tr><td><code>weno_order=3</code></td><td class="n">9 / 9</td></tr>
+    <tr><td><code>weno_order=5</code></td><td class="n">22 / 22</td></tr>
+    <tr><td>3D（不含 chemistry）</td><td class="n">232 / 232</td></tr>
+  </table></div>
+  <p class="note" id="regfull">完整套件（不含 chemistry）在完整版上跑完：704 通過、0 失敗、61 跳過，共 765 個，耗時 52 分 40 秒。</p>
+</section>
+
+<section>
+  <h2>怎麼用 AI agent 完成</h2>
+  <p>一個主 agent（Claude Fable 5.2）只做決策和派工，四條平行的線各自實作：</p>
+  <div class="scroll"><table>
+    <tr><th>線</th><th>模型</th><th>工作</th></tr>
+    <tr><td>A</td><td>Opus 5.5</td><td>build、選測資、baseline、profile；最後的合併與統一量測</td></tr>
+    <tr><td>B</td><td>Fable 5.2</td><td>WENO 與 RHS 的 kernel 優化</td></tr>
+    <tr><td>C</td><td>Opus 5.5</td><td>HLLC、RK、編譯旗標、case-optimization</td></tr>
+    <tr><td>D</td><td>Opus 5.5</td><td>報告、投影片、旁白影片的產生流程</td></tr>
+  </table></div>
+  <ul>
+    <li>每條線有自己的單 GPU 佔位 job，agent 只用 <code>srun --jobid</code> 進去編譯和執行，不在 login node 運算，也不自己送 job。</li>
+    <li>依原始碼檔案分工，避免合併衝突；合併時 8 個 commit 沒有任何衝突。</li>
+    <li>每個修改獨立一個 commit，同節點 A/B 三次取中位數，再做輸出比對和 regression；沒效的也記下來。</li>
+    <li>非逐位元的 B3 保持獨立，另外量成一個配置，不混進標題數字。</li>
+  </ul>
+  <h3>agent 出的錯</h3>
+  <ul>
+    <li>B、C 兩條線第一次 <code>git commit</code> 都觸發 MFC 的 pre-commit hook，在 login node 跑了 1–2 分鐘 lint。之後改在計算節點處理並把警告寫進共用紀錄。</li>
+    <li>A 線的比對工作一度誤跑成 6 份，干擾了一次次要測資的整體執行時間（grindtime 不受影響）。</li>
+    <li>旁白原定台灣男聲，服務端對新句子持續失敗，改用 <code>zh-CN-YunyangNeural</code>。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>限制</h2>
+  <ul>
+    <li>只量了單 GPU、單 MPI rank，沒有多 GPU 與擴展性數據。</li>
+    <li>次要測資在 40 步內幾乎不演化，正確性判斷主要靠主要測資和 regression 套件。</li>
+    <li>Regression 都不含 chemistry 變體。</li>
+    <li>HLLC 現在佔 49.9%，每個執行緒用 196 個暫存器、occupancy 只有 12.5%，是下一個該處理的地方。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>報告影片</h2>
+  <p>7 分 38 秒，含字幕。旁白為合成語音。</p>
+  <video controls preload="metadata" src="video_web.mp4" poster="slides/slide_01.png"></video>
+</section>
+
+<section>
+  <h2>投影片</h2>
+  <p class="note">共 16 頁。可編輯的 <code>slides.pptx</code> 與 16 頁的 <code>report.pdf</code> 在 <a href="https://github.com/moneychen168/Coding-Adv-HW-MFC/tree/main/docs">repo 的 docs 資料夾</a>。</p>
+  <div class="slides">
+    <img src="slides/slide_01.png" alt="投影片 1：標題與三個主要數字" loading="lazy">
+    <img src="slides/slide_02.png" alt="投影片 2" loading="lazy">
+    <img src="slides/slide_03.png" alt="投影片 3" loading="lazy">
+    <img src="slides/slide_04.png" alt="投影片 4" loading="lazy">
+    <img src="slides/slide_05.png" alt="投影片 5" loading="lazy">
+    <img src="slides/slide_06.png" alt="投影片 6" loading="lazy">
+    <img src="slides/slide_07.png" alt="投影片 7" loading="lazy">
+    <img src="slides/slide_08.png" alt="投影片 8" loading="lazy">
+    <img src="slides/slide_09.png" alt="投影片 9" loading="lazy">
+    <img src="slides/slide_10.png" alt="投影片 10" loading="lazy">
+    <img src="slides/slide_11.png" alt="投影片 11：總結果圖表" loading="lazy">
+    <img src="slides/slide_12.png" alt="投影片 12：優化前後的 kernel 時間" loading="lazy">
+    <img src="slides/slide_13.png" alt="投影片 13" loading="lazy">
+    <img src="slides/slide_14.png" alt="投影片 14" loading="lazy">
+    <img src="slides/slide_15.png" alt="投影片 15" loading="lazy">
+    <img src="slides/slide_16.png" alt="投影片 16" loading="lazy">
+  </div>
+</section>
+</main>

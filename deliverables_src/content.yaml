@@ -1,0 +1,611 @@
+# ============================================================================
+# Coding-Adv-HW（MFC on NVIDIA H200）簡報 / 影片 / 講稿 的「唯一內容來源」
+#   改數字 → 改這個檔 → bash $HW/deliverables_src/make_all.sh 重生全部產物
+# 數字來源（DATA RULE：只用這些檔裡的數字，不自己編）：
+#   $HW/results/{A,B,C}/summary.md、$HW/results/final/summary.md、
+#   $WORK/BUILD_RECIPE.md、$HW/AGENT_LOG.md；MFC 本身的描述來自 MFC repo 的 README / docs / 原始碼
+#   缺數字時只寫明確的佔位字串；圖表資料缺值時 make_charts.py 會畫佔位圖，不編數字
+#
+# ★ 會被替換的數字集中在 `vars:`（文字與講稿用 ${名稱} 引用）以及 charts 的資料列。
+# 文字標記：<b>..</b> 強調色粗體　<w>..</w> 警示色粗體　<m>..</m> 灰色
+# 講稿標記：{顯示文字|念法}；句子以 。！？ 切開，每句單獨合成並快取
+# 旁白會送到外部 TTS 服務：不得含姓名、學號、帳號、email、主機名（tts.py 會擋）
+# 版面：13.333 x 7.5 in；box = [x, y, w, h]；內容區 y 1.75 ~ 6.6（以下會被影片字幕蓋住）
+# ============================================================================
+
+vars:
+  # --- 測資與度量（results/A/summary.md）
+  case_name: 5eq_rk3_weno3_hllc
+  case_desc: 'MFC 官方 benchmark：3D 空氣中的震波撞擊水滴（2 種流體）\n5 方程模型、mapped WENO3、HLLC、RK3、雙精度'
+  grid: '683×342×342'              # AGENT_LOG lane A 18:10（PRIMARY）
+  n_eq: '8'                          # results/B/summary.md
+  steps: '60'
+  # --- 環境（BUILD_RECIPE.md）
+  nvhpc: '26.3'
+  mfc_commit: ce4b191d
+  mfc_ver: v5.7.1
+  build_cmd: './mfc.sh build --gpu acc -j 12 -t pre_process simulation'
+  # --- baseline（results/A）
+  base_grind: '0.61395'              # AGENT_LOG lane A 18:10
+  base_spread: '0.17%'
+  base_exec: '97.2'
+  # --- profile（results/A）
+  prof_top: WENO3 重建               # AGENT_LOG lane A 18:10
+  prof_top_pct: '50.8%'
+  # --- 各項優化（results/B、results/C、results/final）
+  opt1_short: B1 WENO3 純量化             # results/B/summary.md
+  opt1_title: 'B1：WENO3 kernel 的 private 陣列改純量、調整迴圈順序，grindtime −35.1%'
+  opt1_before: '0.6286'
+  opt1_after: '0.4079'
+  opt1_spd: '1.541'
+  opt2_short: C1–C4                  # AGENT_LOG lane C 18:15 / 18:55；commit 08cd3670、83376dcc、cfe89f99、3ca84825
+  opt2_title: C1–C4
+  opt2_before: '0.6610'
+  opt2_after: '0.6114'
+  co_comb: '0.2753'                  # case-opt + C1–C4（AGENT_LOG lane C 18:55）
+  co_comb_spd: '2.40'
+  co_before: '0.6610'                # case-optimization（AGENT_LOG lane C 18:15）
+  co_after: '0.3263'
+  co_spd: '2.03'
+  opt3_short: B2 + B3                    # results/B/summary.md
+  opt3_title: B2 + B3
+  opt3_before: '0.4091'                  # B2 前（B1）
+  opt3_after: '0.3896'                   # B3 後（B1+B2+B3）
+  # --- 總結果（results/final）
+  final_base: '0.61386'              # results/final/summary.md（PRIMARY，同節點交錯 3 次中位數）
+  final_grind: '0.34998'             # hw-opt-bitwise
+  spd_total: '1.75'
+  sec_base: '1.31108'
+  sec_bit: '1.01565'
+  sec_spd: '1.29'
+  full_grind: '0.33472'
+  full_spd: '1.83'
+  coB_grind: '0.30540'
+  coB_spd: '2.01'
+  coF_grind: '0.22604'
+  coF_spd: '2.72'
+  co_gain: '1.35'
+  diff_norm: '6.2e-11'
+  diff_ptw: '3.4e-6'
+  n_regress: '45/45 · 9/9 · 22/22 · 232/232'
+  cmp_tol: 逐位元相同
+  full_suite: 完整套件（--no-chemistry）：704 passed / 0 failed / 61 skipped
+
+meta:
+  title: MFC 在 NVIDIA H200 上的 GPU 效能優化
+  glossary: '**MFC** = Multi-component Flow Code（本作業優化的程式）；**grindtime** = MFC 官方效能指標，每格點、每方程、每次 RHS 計算的平均耗時（ns）；**RHS** = right-hand side，半離散方程的右手邊項；**WENO** = Weighted Essentially Non-Oscillatory 高階重建；**HLLC** = Harten–Lax–van Leer–Contact 近似 Riemann solver；**RK3** = 三階 Runge–Kutta 時間積分；**lane A/B/C/D** = 四條平行工作線（見第 13 頁）；**per-lane A/B** = 各 lane 在自己的較小網格與節點上做的前後對照；**hw-opt-bitwise** = C1–C4 + B1、B2、B4（輸出與 baseline 逐位元相同）；**hw-opt-full** = hw-opt-bitwise + B3；**case-opt** = MFC 內建的 --case-optimization 編譯選項。'
+  author: moneychen168           # GitHub 帳號（不放真實姓名）
+  font: Microsoft JhengHei        # pptx 字型名；伺服器渲染時 fontconfig 對應到 Noto Sans CJK TC
+  voice: zh-CN-YunyangNeural      # 男聲。台灣男聲 zh-TW-YunJheNeural 11/18 服務端故障，使用者決定改用此聲；沒有女聲備援
+  rate: '+0%'
+  lead_s: 0.6
+  gap_s: 0.25
+  tail_s: 0.9
+  subtitle_max_chars: 30
+
+theme:
+  ink: '12263A'
+  text: '2B3A4B'
+  muted: '64748B'
+  accent: '0E7C7B'
+  accent_tint: 'E3F1F0'
+  warn: 'C2410C'
+  warn_tint: 'FBECE4'
+  card: 'F2F4F7'
+  line: 'D5DBE3'
+  dark_text: 'FFFFFF'
+  dark_muted: 'A9BCD0'
+  dark_accent: '6FD3CC'
+
+# ----------------------------------------------------------------------------
+charts:
+  profile_share:        # AGENT_LOG lane A 18:10（nsys + NVHPC ACC_TIME）
+    kind: share_hbar
+    pending: 'profile 結果（results/A/summary.md）：各 kernel / 階段的 GPU 時間佔比'
+    xlabel: 佔時間迴圈 GPU 時間的比例（baseline，683×342×342）
+    items:
+      - {label: WENO3 重建, value: '50.8', hl: true}
+      - {label: HLLC Riemann solver, value: '31.6', hl: true}
+      - {label: advection source, value: '5.4'}
+      - {label: 守恆→原始變數, value: '4.1'}
+      - {label: finalize 通量複製, value: '3.2'}
+      - {label: RK 更新, value: '2.9'}
+
+  chain:                # 直接讀 results/final/results.tsv（各設定 3 次中位數）
+    kind: final_grind
+    tsv: $HW/results/final/results.tsv
+    ylabel: grindtime（ns，越低越快）
+    panels:
+      - title: PRIMARY（683×342×342）
+        case: hllc
+        configs:
+          - {key: baseline, label: baseline, cls: base}
+          - {key: bitwise, label: bitwise, cls: bit}
+          - {key: full, label: full, cls: full}
+          - {key: baseline_co, label: "baseline\n+case-opt", cls: co}
+          - {key: full_co, label: "full\n+case-opt", cls: co}
+      - title: SECONDARY（WENO5）
+        case: visc
+        configs:
+          - {key: baseline, label: baseline, cls: base}
+          - {key: bitwise, label: bitwise, cls: bit}
+          - {key: full, label: full, cls: full}
+
+  kernels:              # 直接讀 results/final/profile_before_after.txt（nsys，PRIMARY 10 步）
+    kind: kernel_ba
+    src: $HW/results/final/profile_before_after.txt
+    before: baseline
+    after: hw-opt-full
+    xlabel: kernel 時間（s，PRIMARY 10 步 = 30 次 RHS）
+    skip: [other, RHS-entry]
+    labels: {WENO3: WENO3 重建, HLLC: HLLC Riemann, cons->prim: 守恆→原始變數, advection: advection source, finalize: finalize 複製, RK: RK 更新}
+
+slides:
+
+  # ------------------------------------------------------------------ 1
+  - id: title
+    layout: title
+    kicker: Coding-Adv-HW · MFC · 國網 Nano · NVIDIA H200
+    title: 'MFC 在單張 H200 上的 GPU 效能優化\ngrindtime ${spd_total}×，輸出逐位元相同'
+    subtitle: 'MFC = Multi-component Flow Code，Fortran + OpenACC 的可壓縮多相流求解器；由一個主 agent 帶四條 AI agent 工作線完成'
+    author: moneychen168
+    chips:
+      - {value: '${spd_total}×', label: 'PRIMARY：${final_base} → ${final_grind} ns，輸出與原版逐位元相同'}
+      - {value: '${sec_spd}×', label: 'SECONDARY（viscous、WENO5）：${sec_base} → ${sec_bit} ns'}
+      - {value: '${coF_spd}×', label: '再加上游 case-opt（上游單獨 ${coB_spd}×，我們的改動再 ${co_gain}×）'}
+    source: 'repo：https://github.com/moneychen168/Coding-Adv-HW-MFC ｜ 數字來源：results/final/summary.md'
+    notes: |
+      大家好。這份作業選的是 {MFC|M F C}，一套用 Fortran 和 {OpenACC|Open A C C} 寫的可壓縮多相流求解器，目標是在國網 Nano 的單張 {H200|H 兩百} 上把它變快，指標是官方的 grindtime。結果是：在輸出和原版逐位元相同的前提下，主要測資快了 ${spd_total} 倍，第二個測資快了 ${sec_spd} 倍；再加上 {MFC|M F C} 內建的 case-optimization，總共 ${coF_spd} 倍。整份作業由多個 {AI agent|A I agent} 分工完成。
+
+  # ------------------------------------------------------------------ 2
+  - id: mfc
+    layout: content
+    kicker: MFC 是什麼
+    title: MFC：約 4 萬行 Fortran 的可壓縮多相流求解器，GPU 用 OpenACC
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 5.9, 2.3]
+        heading: 程式本身
+        body:
+          - '<b>MFC</b> = Multi-component Flow Code'
+          - 'Georgia Tech 開發；約 4 萬行 Fortran + Fypp 前處理器'
+          - '2025 Gordon Bell Prize finalist'
+      - type: card
+        box: [6.83, 1.8, 5.9, 2.3]
+        heading: GPU 怎麼跑
+        body:
+          - 'GPU 程式碼 = <b>OpenACC</b> 指令（Fypp 產生）'
+          - 'pre_process → <b>simulation</b> → post_process'
+          - '只量測、只優化 simulation'
+      - type: flow
+        box: [0.6, 4.4, 12.13, 2.15]
+        steps:
+          - {head: ① 變數轉換, body: 守恆變數 → 原始變數（密度、速度、壓力）}
+          - {head: ② WENO 重建, body: 'WENO = 高階、不震盪的格面左右狀態重建'}
+          - {head: ③ 格面通量, body: '近似 Riemann solver（如 HLLC）算通量'}
+          - {head: ④ 通量散度, body: '加總各方向通量 → 右手邊 RHS'}
+          - {head: ⑤ RK 更新, body: 'RK3 = 三階 Runge–Kutta，每步算 3 次 RHS'}
+    source: 來源：MFC README.md；docs/documentation/gpuParallelization.md、equations.md；src/simulation/
+    notes: |
+      {MFC|M F C} 全名是 Multi-component Flow Code，由 Georgia Tech 開發，大約四萬行 Fortran，GPU 部分是 {OpenACC|Open A C C} 指令，曾入圍 2025 年的 Gordon Bell 獎。我們只優化負責時間推進的 simulation 程式。它每一步做五件事：變數轉換、{WENO|WENO} 重建、用 Riemann solver 算格面通量、加總得到右手邊，最後用三階 Runge-Kutta 更新，每一步要算三次右手邊。
+
+  # ------------------------------------------------------------------ 3
+  - id: metric
+    layout: content
+    kicker: 測資與度量
+    title: 度量：grindtime = 每格點 · 每方程 · 每次 RHS 的耗時（ns）
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 7.0, 2.6]
+        fill: accent_tint
+        heading: grindtime 定義（MFC 原始碼）
+        body: 'grindtime = t_stage × 10⁹ ÷（sys_size × m × n × p）\n<m>t_stage = 一個 RK stage（= 一次 RHS）的最短牆鐘時間，排除前 2 步暖機；sys_size = 方程數；m、n、p = 三個方向的格點數</m>\n<b>越低越快</b>，與網格大小無關，可跨測資比較'
+      - type: card
+        box: [7.9, 1.8, 4.83, 2.6]
+        heading: '測資：${case_name}'
+        body: '${case_desc}'
+      - type: stat
+        box: [0.6, 4.65, 2.9, 1.9]
+        value: '${grid}'
+        value_size: 28
+        label: 網格 Nx × Ny × Nz（約 7,989 萬格）
+      - type: stat
+        box: [3.7, 4.65, 2.9, 1.9]
+        value: '${n_eq}'
+        value_size: 30
+        label: 方程數 sys_size
+      - type: stat
+        box: [6.8, 4.65, 2.9, 1.9]
+        value: '${steps}'
+        value_size: 30
+        label: 時間步數
+      - type: stat
+        box: [9.9, 4.65, 2.83, 1.9]
+        value: 3 次
+        value_size: 30
+        label: 同節點重複量測，取中位數
+    source: 來源：MFC src/simulation/m_start_up.fpp:728、m_time_steppers.fpp:576；AGENT_LOG（lane A）
+    notes: |
+      grindtime 是 {MFC|M F C} 官方的效能指標：一個 Runge-Kutta stage 的最短牆鐘時間，除以方程數和格點數，也就是每格點、每方程、每次右手邊幾奈秒，越低越快。主要測資是官方 benchmark，3D 震波撞擊水滴，約八千萬格、8 條方程、跑 60 步。
+
+  # ------------------------------------------------------------------ 4
+  - id: env
+    layout: content
+    kicker: 環境
+    title: '環境：國網 Nano 單張 H200 + NVHPC ${nvhpc}（OpenACC）'
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 3.85, 4.75]
+        heading: 硬體
+        body:
+          - '<b>NVIDIA H200</b>，compute capability 9.0（只編 sm_90）'
+          - '只用 1 張 GPU、1 個 MPI rank'
+          - '國網 Nano compute node，佔位 job 內執行'
+      - type: card
+        box: [4.74, 1.8, 3.85, 4.75]
+        heading: 軟體
+        body:
+          - 'NVHPC ${nvhpc}：nvfortran（OpenACC）+ HPC-X OpenMPI'
+          - 'MFC ${mfc_ver} 正式版（commit ${mfc_commit}）'
+          - 'Python 3.9.21、CMake 3.26.5'
+      - type: card
+        box: [8.88, 1.8, 3.85, 4.75]
+        heading: Build 與執行
+        body:
+          - '<b>build</b>：<m>${build_cmd}</m>'
+          - '<b>旗標</b>：MFC 預設旗標，只產生 cc90 程式碼'
+          - '<b>執行</b>：共用 run_bench.sh，mpirun -n 1、不重新編譯'
+    source: 來源：BUILD_RECIPE.md；jobs/env.sh；jobs/run_bench.sh
+    notes: |
+      環境是國網 Nano 的單張 {H200|H 兩百}，編譯器是 {NVHPC|N V H P C} ${nvhpc}，起點是 {MFC|M F C} 5.7.1 正式版。所有運算都在預先配置的佔位 job 裡執行，各條工作線用同一支量測腳本。
+
+  # ------------------------------------------------------------------ 5
+  - id: baseline
+    layout: content
+    kicker: Baseline
+    title: 'Baseline：未修改的 MFC ${mfc_ver}，grindtime ${base_grind} ns'
+    blocks:
+      - type: stat
+        box: [0.6, 1.9, 3.8, 2.0]
+        value: '${base_grind}'
+        label: grindtime 中位數（ns / gp / eq / rhs），3 次
+      - type: stat
+        box: [4.7, 1.9, 3.8, 2.0]
+        value: '${base_spread}'
+        value_size: 32
+        color: ink
+        label: 3 次量測的相對範圍
+      - type: stat
+        box: [8.8, 1.9, 3.93, 2.0]
+        value: '${base_exec}'
+        value_size: 32
+        color: ink
+        label: simulation 執行時間（s）；時間迴圈 69.09 s
+      - type: card
+        box: [0.6, 4.3, 12.13, 2.25]
+        heading: Baseline 怎麼定義
+        body:
+          - 'MFC ${mfc_ver}（${mfc_commit}），官方 build 選項，未改任何原始碼'
+          - '3 次執行的輸出<b>逐位元相同</b> → 結果可重現；GPU 在時間迴圈內 100% 忙碌'
+          - '次要案例（viscous，577×289×289、40 步）：1.31140 ns'
+    source: 來源：AGENT_LOG（lane A，2026-11-18 18:10）
+    notes: |
+      Baseline 是沒有修改的 {MFC|M F C}。主要測資的 grindtime 中位數是 ${base_grind} 奈秒，三次只差 ${base_spread}，而且三次輸出逐位元相同，可以重現。
+
+  # ------------------------------------------------------------------ 6
+  - id: profile
+    layout: content
+    kicker: Profile
+    title: 'Profile：WENO3 重建佔 50.8%、HLLC Riemann solver 佔 31.6%'
+    blocks:
+      - type: image
+        box: [0.6, 1.75, 7.3, 4.85]
+        chart: profile_share
+      - type: bullets
+        box: [8.2, 1.95, 4.53, 4.6]
+        size: 16
+        items:
+          - 'nsys（CUDA + OpenACC）與 NVHPC ACC_TIME 量 kernel 時間；ncu 看單一 kernel'
+          - '<b>WENO3</b>（m_weno.fpp:983）50.8% → lane B'
+          - '<b>HLLC</b>（m_riemann_solver_hllc.fpp:894）31.6%：196 個暫存器 / 執行緒、occupancy 12.5% → lane C'
+          - 'GPU 在迴圈內 100% 忙碌：瓶頸在 kernel 本身'
+    source: 來源：AGENT_LOG（lane A 18:10 profile；lane C 18:15 ncu）
+    notes: |
+      Profile 顯示，{WENO|WENO} 三階重建佔 50.8%，HLLC Riemann solver 佔 31.6%，合計超過八成。HLLC 每個執行緒用 196 個暫存器，occupancy 只有 12.5%。GPU 在迴圈裡百分之百忙碌，瓶頸在 kernel 本身，所以 B 線攻 {WENO|WENO}，C 線攻 Riemann solver。
+
+  # ------------------------------------------------------------------ 7
+  - id: opt1
+    layout: content
+    kicker: '優化 1（lane B）：WENO3 private 陣列 → 純量'
+    title: '${opt1_title}'
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 3.9, 2.55]
+        heading: 動機
+        body: '中間值存在執行時才定大小的 private 陣列 → 變成每執行緒的 device 記憶體暫存；變數索引在最內層，相鄰執行緒存取不連續'
+      - type: card
+        box: [4.72, 1.8, 3.9, 2.55]
+        heading: 改法
+        body: 'm_weno.fpp:917–1052（a40cc7bf）：dvd、poly、beta、alpha、omega 改成純量；變數索引移到 collapse(4) 最外層；浮點順序不變'
+      - type: card
+        box: [8.84, 1.8, 3.89, 2.55]
+        fill: accent_tint
+        heading: 正確性
+        body: '第 20 步 restart 檔<b>逐位元相同</b>（cmp）；MFC regression test（weno_order=3）9 / 9 通過'
+      - type: stat
+        box: [0.6, 4.6, 5.0, 1.95]
+        value: '${opt1_before} → ${opt1_after}'
+        value_size: 36
+        label: grindtime（ns），per-lane A/B，3 次中位數
+      - type: stat
+        box: [5.9, 4.6, 3.0, 1.95]
+        value: '${opt1_spd}×'
+        value_size: 36
+        label: 相對前一版
+      - type: card
+        box: [8.84, 4.6, 3.89, 1.95]
+        heading: 量測
+        size: 14
+        body: '503×252×252、8 方程、20 步，交錯各 3 次\n<b>B4</b>：WENO5/7 同病因一行修正，WENO5 案例 0.8112 → 0.5503 ns'
+    source: 來源：results/B/summary.md（per-lane A/B：較小網格、lane B 節點）；commit a40cc7bf、af7470e6
+    notes: |
+      以下三頁是各線在較小網格上的前後對照。第一項在 {WENO|WENO} kernel：中間值原本存在執行時才決定大小的 private 陣列，在 GPU 上變成每個執行緒的記憶體暫存，存取也不連續。改成純量並調整迴圈順序後，浮點順序不變，grindtime 從 ${opt1_before} 降到 ${opt1_after} 奈秒，快了 ${opt1_spd} 倍，輸出逐位元相同。B4 用同樣方法修好五階和七階，五階快了 32.2%。
+
+  # ------------------------------------------------------------------ 8
+  - id: opt2
+    layout: content
+    kicker: '優化 2（lane C）：build 層級與 Riemann / RK kernel'
+    title: 'case-optimization 2.03×；再加 C1–C4，合計 2.40×（逐位元相同）'
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 5.9, 2.55]
+        heading: 'case-optimization（MFC 內建 build 選項）'
+        body: '把測資參數（num_fluids、weno_order…）寫死進 binary，編譯器可展開迴圈、固定陣列尺寸\n<m>需要不含這些參數的 simulation.inp</m>'
+      - type: card
+        box: [6.83, 1.8, 5.9, 2.55]
+        heading: 'C1–C4（原始碼與編譯旗標）'
+        body: '<b>C1</b> HLLC 直接寫最終通量陣列，省掉全場複製　−3.6%\n<b>C2</b> RK 更新一格一執行緒　−0.7%\n<b>C3</b> 放寬 -Minline 上限，HLLC 內呼叫 13 → 7　−2.5%\n<b>C4</b> EOS 剛性氣體捷徑，省掉除法　−0.9%'
+      - type: stat
+        box: [0.6, 4.6, 3.9, 1.95]
+        value: '${co_spd}×'
+        value_size: 36
+        label: 'case-optimization：${co_before} → ${co_after} ns'
+      - type: stat
+        box: [4.72, 4.6, 3.9, 1.95]
+        value: '−7.5%'
+        value_size: 36
+        label: 'C1–C4 累計：${opt2_before} → ${opt2_after} ns；加 case-opt：${co_comb} ns（${co_comb_spd}×）'
+      - type: card
+        box: [8.84, 4.6, 3.89, 1.95]
+        fill: accent_tint
+        heading: 正確性
+        size: 14
+        body: '與 baseline <b>逐位元相同</b>；regression（riemann_solver=2）45/45 通過\n<m>per-lane A/B：316×158×158、20 步</m>'
+    source: 來源：results/C/results.tsv、AGENT_LOG（per-lane A/B：316×158×158、lane C 節點）；commit 08cd3670、83376dcc、cfe89f99、3ca84825
+    notes: |
+      C 線先試 {MFC|M F C} 內建的 case-optimization，把測資參數寫死進執行檔，快了 ${co_spd} 倍，輸出逐位元相同。接著四個小改動：HLLC 直接寫最終通量、Runge-Kutta 一格一執行緒、放寬 inline 上限、EOS 捷徑，累計快 7.5%，也都逐位元相同。
+
+  # ------------------------------------------------------------------ 9
+  - id: opt3
+    layout: content
+    kicker: '優化 3（lane B）：少做無效重建、少做除法'
+    title: 'B2 + B3：跳過橫向 ghost 層的重建、WENO3 權重少做除法'
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 5.9, 2.55]
+        heading: 'B2：重建只掃內部格點'
+        body: '<m>m_rhs.fpp:2025–2055（41d8f973）</m>\nRiemann solver 只讀橫向內部的重建值，橫向 ghost 層（每向多 6 層、約 7–8 % 的 WENO 工作）是無效計算 → 無黏性、無表面張力時只掃 0:n、0:p'
+      - type: card
+        box: [6.83, 1.8, 5.9, 2.55]
+        heading: 'B3：每側只做一次倒數'
+        body: '<m>m_weno.fpp:918–1060（933e55ba）</m>\nB1 之後 WENO 仍佔 24.7 %，主要成本是 FP64 除法 → 非線性權重改成分子 / 分母交叉相乘，mapped WENO3 每格每變數除法 16 → 4 次'
+      - type: stat
+        box: [0.6, 4.6, 3.9, 1.95]
+        value: '−1.1%'
+        value_size: 36
+        label: 'B2：0.4091 → 0.4046 ns；輸出<b>逐位元相同</b>'
+      - type: stat
+        box: [4.72, 4.6, 3.9, 1.95]
+        value: '−3.6%'
+        value_size: 36
+        label: 'B3：0.4042 → 0.3896 ns；同節點 3 次中位數'
+      - type: card
+        box: [8.84, 4.6, 3.89, 1.95]
+        fill: warn_tint
+        heading: B3 非逐位元 → 只放進 full
+        size: 14
+        body: '浮點順序改變：相對差 ≤ 3e-13，y / z 動量 3.7e-10；regression 9 / 9 通過'
+    source: 來源：results/B/summary.md（per-lane A/B：503×252×252；B2 41d8f973、B3 933e55ba）
+    notes: |
+      第三組是兩個較小的 {WENO|WENO} 優化。B2 發現 Riemann solver 只讀內部格點，所以不再對橫向的 ghost 層做重建，快了 1.1%，輸出逐位元相同。B3 把非線性權重的除法從每格 16 次減到 4 次，快了 3.6%，但它改變浮點順序，最大相對誤差 {3.7e-10|3.7 乘 10 的負 10 次方}，所以只放進另一個設定 hw-opt-full。
+
+  # ------------------------------------------------------------------ 10
+  - id: negative
+    layout: content
+    kicker: 負面結果
+    title: 試過但沒有採用：沒變快、或破壞正確性的方向
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 3.9, 4.75]
+        fill: warn_tint
+        heading: 'maxregcount:128（C）'
+        body: '全域限制暫存器：HLLC 暫存器 196 → 98–128、沒有 spill，但 grindtime +0.1%：occupancy 提高卻沒有變快\n逐檔限制則無法 link（nvlink：受限 kernel 呼叫未受限的 device routine）'
+      - type: card
+        box: [4.72, 1.8, 3.9, 4.75]
+        fill: warn_tint
+        heading: 'helper 改 public（C）'
+        body: '假說：nvfortran 不跨檔 inline 引用 PRIVATE procedure 的函式\n結果：HLLC 的 PTX 仍是 7 個 device 呼叫，device code 不變 → 假說不成立，已 revert'
+      - type: card
+        box: [8.84, 1.8, 3.89, 4.75]
+        fill: warn_tint
+        heading: 'B4 用在 WENO3（B）'
+        body: 'WENO5/7 的固定尺寸修正對 WENO3 benchmark 沒有幫助：0.3887 → 0.3900 ns（+0.3%，雜訊等級）\n保留 B4 是因為 WENO5 案例 −32.2%'
+    source: 來源：AGENT_LOG（lane C 18:55）；results/C/results.tsv（C3、C6a）；results/B/summary.md（B4）
+    notes: |
+      不是每個想法都有效。全域限制暫存器數讓 occupancy 提高，卻沒有變快；把 EOS helper 改成 public 想促成 inline，device code 完全沒變；B4 對三階 {WENO|WENO} 也沒有幫助。這些都照實記錄在報告裡。
+
+  # ------------------------------------------------------------------ 11
+  - id: results
+    layout: content
+    kicker: 總結果
+    title: '總結果：bitwise ${spd_total}×（逐位元相同）、full ${full_spd}×、加上游 case-opt ${coF_spd}×'
+    blocks:
+      - type: image
+        box: [0.6, 1.75, 7.4, 4.85]
+        chart: chain
+      - type: table
+        box: [8.3, 1.85, 4.43, 3.3]
+        col_w: [2.13, 1.2, 1.1]
+        size: 12.5
+        header: [PRIMARY 設定, grind（ns）, 倍率]
+        rows:
+          - [baseline, '${final_base}', '1.00×']
+          - [hw-opt-bitwise, '${final_grind}', '<b>${spd_total}×</b>']
+          - [hw-opt-full, '${full_grind}', '${full_spd}×']
+          - [baseline + case-opt, '${coB_grind}', '${coB_spd}×']
+          - [hw-opt-full + case-opt, '${coF_grind}', '${coF_spd}×']
+      - type: text
+        box: [8.3, 5.3, 4.43, 1.3]
+        size: 12.5
+        color: muted
+        text: 'bitwise = C1–C4 + B1、B2、B4；full = 再加 B3（非逐位元）。case-opt：上游單獨 ${coB_spd}×，我們的改動在其上再 ${co_gain}×。同一 H200 節點交錯執行，各 3 次中位數'
+    source: 來源：results/final/results.tsv、summary.md（圖由 results.tsv 直接產生）
+    notes: |
+      最終結果在同一個 H200 節點上交錯重量，每個設定跑三次取中位數。輸出和原版逐位元相同的 bitwise 設定，主要測資快 ${spd_total} 倍，第二個測資快 ${sec_spd} 倍。加入 B3 的 full 設定是 ${full_spd} 倍，但不是逐位元相同。上游的 case-optimization 單獨是 ${coB_spd} 倍，我們的改動疊在上面再快 ${co_gain} 倍，合計 ${coF_spd} 倍。
+
+  # ------------------------------------------------------------------ 11b
+  - id: kernels
+    layout: content
+    kicker: 優化前後
+    title: '優化前後的 kernel 時間：WENO3 快 3.63×，HLLC 成為最大熱點'
+    blocks:
+      - type: image
+        box: [0.6, 1.75, 7.6, 4.85]
+        chart: kernels
+      - type: bullets
+        box: [8.5, 1.95, 4.23, 4.6]
+        size: 16
+        items:
+          - 'nsys，PRIMARY 10 步，同一節點'
+          - 'kernel 總時間 11.82 → 6.54 s（1.81×）'
+          - '<b>WENO3</b>：6.01 → 1.65 s（3.63×）'
+          - '<b>HLLC</b>：3.74 → 3.26 s，佔比 31.6% → 49.9%'
+          - '下一步：HLLC 每執行緒 196 個暫存器、occupancy 12.5%'
+    source: 來源：results/final/profile_before_after.txt（圖由此檔直接產生；baseline 對 hw-opt-full）
+    notes: |
+      用 nsys 比較優化前後，kernel 總時間從 11.82 秒降到 6.54 秒。{WENO|WENO} 三階快了 3.63 倍，finalize 的全場複製直接消失；HLLC 只快 1.14 倍，現在佔了將近一半，是下一個目標。
+
+  # ------------------------------------------------------------------ 12
+  - id: verify
+    layout: content
+    kicker: 正確性
+    title: 正確性：輸出比對 + MFC regression test，兩關都過才算數
+    blocks:
+      - type: flow
+        box: [0.6, 1.85, 12.13, 2.45]
+        steps:
+          - {head: ① 輸出比對, body: 'tools/compare_output.py 逐變數比對 q_cons；報告最大絕對 / 相對差與是否逐位元相同'}
+          - {head: ② Regression test, body: 'MFC 內建 ./mfc.sh test，與官方 golden file 比對'}
+          - {head: ③ 量測紀律, body: '每個優化獨立 commit；同節點 A/B 3 次取中位數'}
+      - type: stat
+        box: [0.6, 4.6, 5.9, 1.95]
+        value: '${cmp_tol}'
+        value_size: 30
+        label: 'bitwise 與原版（兩個測資）；full 不是：最大差 ${diff_norm}（場最大值正規化）、逐點 ${diff_ptw}'
+      - type: stat
+        box: [6.83, 4.6, 5.9, 1.95]
+        value: '${n_regress}'
+        value_size: 24
+        label: 'regression 子集（riemann_solver=2、weno_order=3、weno_order=5、3D）；${full_suite}'
+    source: 來源：results/final/correctness.txt、regression.txt；tools/compare_output.py
+    notes: |
+      每個優化都要過兩關：逐變數比對最後的守恆變數，以及 {MFC|M F C} 內建的 regression test。bitwise 設定在兩個測資都和原版逐位元相同。full 設定因為 B3 不是：以場最大值正規化的最大差是 {6.2e-11|6.2 乘 10 的負 11 次方}，逐點相對差最大 {3.4e-6|3.4 乘 10 的負 6 次方}，出現在動量接近零的地方。regression 子集 45、9、22、232 個測試全部通過；完整套件 704 個測試，704 個通過、0 個失敗。
+
+  # ------------------------------------------------------------------ 13
+  - id: agents
+    layout: content
+    kicker: 如何使用 AI Agent（一）
+    title: 一個主 agent 當大腦，四條 lane 平行工作
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 12.13, 1.2]
+        fill: accent_tint
+        heading: 主 agent（Fable 5.2）＝大腦
+        size: 15
+        body: '只做決策、派工、整合結果；不自己改程式。implementer 用 Opus 5.5 與 Fable 5.2'
+      - type: card
+        box: [0.6, 3.2, 2.86, 3.35]
+        badge: A
+        heading: build + baseline + profile
+        body: '可重現的 build、baseline、profile；最終整合與統一量測\n<m>實作：Opus 5.5</m>'
+      - type: card
+        box: [3.69, 3.2, 2.86, 3.35]
+        badge: B
+        heading: kernel 優化
+        body: 'WENO 重建與 RHS 相關 kernel\n<m>實作：Fable 5.2</m>'
+      - type: card
+        box: [6.78, 3.2, 2.86, 3.35]
+        badge: C
+        heading: build / runtime 與 Riemann
+        body: 'build 選項、Riemann solver、time stepper\n<m>實作：Opus 5.5</m>'
+      - type: card
+        box: [9.87, 3.2, 2.86, 3.35]
+        badge: D
+        heading: 交付物
+        body: '簡報、旁白影片、報告 PDF，全部由內容檔自動產生\n<m>實作：Opus 5.5</m>'
+    source: 來源：AGENT_LOG.md
+    notes: |
+      接下來說明怎麼用 {AI agent|A I agent}。一個 Fable 5.2 主 agent 當大腦，只做決策、派工和整合，不自己改程式。四條平行工作線：A 線負責 build、baseline、profile 和最終整合；B 線攻 {WENO|WENO}；C 線攻 Riemann solver、time stepper 和 build 選項；D 線自動產生簡報、影片和報告。實作的 agent 用 Opus 5.5 和 Fable 5.2。
+
+  # ------------------------------------------------------------------ 14
+  - id: agent_rules
+    layout: content
+    kicker: 如何使用 AI Agent（二）
+    title: 讓多個 agent 平行又不互相破壞的規則
+    blocks:
+      - type: card
+        box: [0.6, 1.8, 5.9, 2.25]
+        heading: 佔位 job + srun --jobid
+        body: '主 agent 先配置好 SLURM 佔位 job；agent 只能用 srun --jobid --overlap 進去跑，不在 login node 運算、也不自己送 job'
+      - type: card
+        box: [6.83, 1.8, 5.9, 2.25]
+        heading: 每個優化獨立 commit、獨立 worktree
+        body: 'B、C 各自在自己的 git worktree 改不同檔案；同節點 A/B 3 次取中位數才算數'
+      - type: card
+        box: [0.6, 4.3, 5.9, 2.25]
+        heading: 先驗證、再報數字
+        body: '輸出比對 + MFC regression test 都過才進結果表；負面結果也照實記錄'
+      - type: card
+        box: [6.83, 4.3, 5.9, 2.25]
+        fill: accent_tint
+        heading: 共享工作日誌 AGENT_LOG.md
+        body: '實例：MFC 的 git pre-commit hook 會跑 precheck -j 12；lane B、C 各在 login node 觸發一次 → 立刻中止並寫進日誌，之後 commit 一律在佔位 job 內執行'
+    source: 來源：AGENT_LOG.md；results/C/claims.md
+    notes: |
+      規則有三條：主 agent 預先配置佔位 job，其他 agent 只能用 srun 進去跑，不在登入節點運算、也不自己送 job；每條線改不同檔案，每個優化是獨立 commit；先驗證再報數字，失敗也照實記錄。共同的坑，例如 git hook 在登入節點跑檢查、每次執行寫出 29 GB，踩到一次就寫進共享日誌，其他線就不會再踩。主 agent 也做了幾個關鍵決定：不是逐位元相同的 B3 單獨成一個設定，上游的 case-optimization 和我們的改動分開報告，還沒驗證完的 E1 和 B5 不放進最終版。
+
+  # ------------------------------------------------------------------ 15
+  - id: conclusion
+    layout: closing
+    kicker: 總結
+    title: '總結：輸出逐位元相同下 ${spd_total}×；加上游 case-opt ${coF_spd}×'
+    columns:
+      - heading: 結論
+        items:
+          - '<b>bitwise</b>：PRIMARY ${spd_total}×、SECONDARY ${sec_spd}×，與原版逐位元相同'
+          - '<b>full</b>（+B3）${full_spd}×，非逐位元（${diff_norm} / ${diff_ptw}）'
+          - '<b>+ case-opt</b> ${coF_spd}×：上游 ${coB_spd}×，我們再 ${co_gain}×'
+      - heading: 限制與未完成
+        items:
+          - '只測單 GPU、單 MPI rank'
+          - 'per-lane 數字來自較小網格，不能與主表相加'
+          - 'E1、B5 未驗證完，未整合'
+          - 'agent 在 login node 誤觸 git hook 兩次'
+      - heading: 心得
+        items:
+          - '看暫存器與 occupancy，不靠頻寬直覺：成本在執行時定大小的 private 陣列'
+          - '確定性 baseline + 逐位元比對：每個改動可單獨判斷，也揪出 B3 是另一類'
+          - '依檔案分 lane、各有 GPU；共同的坑踩一次就寫進日誌廣播'
+    source: 'repo：https://github.com/moneychen168/Coding-Adv-HW-MFC ｜ 來源：results/final/summary.md；AGENT_LOG.md'
+    notes: |
+      總結。在輸出和原版逐位元相同的前提下，主要測資快 ${spd_total} 倍、第二個測資快 ${sec_spd} 倍，加上上游的 case-optimization 是 ${coF_spd} 倍。最大的收穫是看 profile 的暫存器和 occupancy，而不是憑直覺；逐位元比對讓每個改動都能單獨判斷。不足也寫進報告：只測單一 GPU、兩個候選沒有整合，agent 也在登入節點誤觸過兩次 git hook。謝謝大家。

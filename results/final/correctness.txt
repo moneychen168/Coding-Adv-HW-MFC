@@ -1,0 +1,202 @@
+# Correctness of every configuration vs the lane-A baseline reference (final step), tool $HW/tools/compare_output.py
+# reference: PRIMARY $WORK/results/A/baseline/hllc_run1 (step 60), SECONDARY .../visc_run1 (step 40); all runs start from the same baseline-pre_process ICs
+# columns: max_abs = max|A-B|; abs/max|A| = max_abs normalised by max|A| of the field; rel|A|>1e-6max = max pointwise |A-B|/|A| over cells with |A| > 1e-6*max|A|
+# (max_ptw_rel without the floor is dominated by cells where |A| ~ 1e-300 and is not meaningful)
+
+case	config	commit	bitwise_vs_baseline	max(abs/max|A|) over vars	max(rel|A|>1e-6max) over vars
+hllc	baseline(rerun)	ce4b191d	True	0	0
+hllc	bitwise	de73c6be	True	0	0
+hllc	full	3c8bcc94	False	6.20e-11 (vars 4,5 = y/z momentum)	3.35e-06 (y/z momentum near zero crossings); energy 1.9e-10; densities/alpha <= 5.3e-08
+hllc	baseline_co	ce4b191d	True	0	0
+hllc	full_co	3c8bcc94	False (bitwise == full plain)	6.20e-11	3.35e-06
+visc	baseline(rerun)	ce4b191d	True	0	0
+visc	bitwise	de73c6be	True	0	0
+visc	full	3c8bcc94	True (B3 only touches WENO3; SECONDARY is WENO5)	0	0
+
+# run-to-run determinism of optimized builds (rep1 vs rep2, rep3): all BITWISE_IDENTICAL=True
+=== hllc bitwise rep1 vs rep2: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== hllc bitwise rep1 vs rep3: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== hllc full rep1 vs rep2: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== hllc full rep1 vs rep3: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== hllc full_co rep1 vs rep2: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== hllc full_co rep1 vs rep3: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== visc full rep1 vs rep2: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+=== visc full rep1 vs rep3: BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+
+############ detail: hllc full / full_co (per variable) ############
+=== hllc / full vs baseline reference (step 60)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel rel|A|>1e-6max bitwise  nan
+          var1    79886412  1.0007e+03  1.3868e-10  1.3858e-13  9.4885e+63     5.3450e-08   False    0
+          var2    79886412  6.2603e+00  3.2606e-11  5.2084e-12  1.4973e+29     1.4063e-09   False    0
+          var3    79886412  2.1974e+03  4.6257e-08  2.1050e-11 5.9452e+284     3.1285e-06   False    0
+          var4    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287     3.3530e-06   False    0
+          var5    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287     3.3530e-06   False    0
+          var6    79886412  4.1031e+08  4.8069e-05  1.1715e-13  1.8854e-10     1.8854e-10   False    0
+          var7    79886412  1.0000e+00  1.3860e-13  1.3860e-13  9.4885e+63     5.3464e-08   False    0
+          var8    79886412  1.0000e+00  1.3911e-13  1.3911e-13  1.4973e+29     4.2296e-08   False    0
+BITWISE_IDENTICAL=False  WITHIN_TOL(rtol=1e-12,atol=0.0)=False
+exit=1
+=== hllc / full_co vs baseline reference (step 60)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel rel|A|>1e-6max bitwise  nan
+          var1    79886412  1.0007e+03  1.3868e-10  1.3858e-13  9.4885e+63     5.3450e-08   False    0
+          var2    79886412  6.2603e+00  3.2606e-11  5.2084e-12  1.4973e+29     1.4063e-09   False    0
+          var3    79886412  2.1974e+03  4.6257e-08  2.1050e-11 5.9452e+284     3.1285e-06   False    0
+          var4    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287     3.3530e-06   False    0
+          var5    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287     3.3530e-06   False    0
+          var6    79886412  4.1031e+08  4.8069e-05  1.1715e-13  1.8854e-10     1.8854e-10   False    0
+          var7    79886412  1.0000e+00  1.3860e-13  1.3860e-13  9.4885e+63     5.3464e-08   False    0
+          var8    79886412  1.0000e+00  1.3911e-13  1.3911e-13  1.4973e+29     4.2296e-08   False    0
+BITWISE_IDENTICAL=False  WITHIN_TOL(rtol=1e-12,atol=0.0)=False
+exit=1
+=== hllc / full_co vs full (step 60)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel rel|A|>1e-6max bitwise  nan
+          var1    79886412  1.0007e+03  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var2    79886412  6.2603e+00  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var3    79886412  2.1974e+03  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var4    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var5    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var6    79886412  4.1031e+08  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var7    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+          var8    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00     0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+=== hllc / bitwise vs full (step 60) = effect of B3 alone
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel rel|A|>1e-6max bitwise  nan
+          var1    79886412  1.0007e+03  1.3868e-10  1.3858e-13  9.4885e+63     5.3450e-08   False    0
+          var2    79886412  6.2603e+00  3.2606e-11  5.2084e-12  1.4973e+29     1.4063e-09   False    0
+          var3    79886412  2.1974e+03  4.6257e-08  2.1050e-11 5.9452e+284     3.1285e-06   False    0
+          var4    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287     3.3530e-06   False    0
+          var5    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287     3.3530e-06   False    0
+          var6    79886412  4.1031e+08  4.8069e-05  1.1715e-13  1.8854e-10     1.8854e-10   False    0
+          var7    79886412  1.0000e+00  1.3860e-13  1.3860e-13  9.4885e+63     5.3464e-08   False    0
+          var8    79886412  1.0000e+00  1.3911e-13  1.3911e-13  1.4973e+29     4.2296e-08   False    0
+BITWISE_IDENTICAL=False  WITHIN_TOL(rtol=1e-12,atol=0.0)=False
+exit=1
+CORRECT2_DONE
+
+############ raw output of all 8 comparisons ############
+=== hllc / baseline  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/hllc_run1)
+A = $WORK/results/A/baseline/hllc_run1 (restart_data)
+B = $WORK/results/final/runs/hllc_baseline_rep1 (restart_data)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    79886412  1.0007e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var2    79886412  6.2603e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var3    79886412  2.1974e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var4    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var5    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var6    79886412  4.1031e+08  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var7    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var8    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+=== hllc / bitwise  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/hllc_run1)
+A = $WORK/results/A/baseline/hllc_run1 (restart_data)
+B = $WORK/results/final/runs/hllc_bitwise_rep1 (restart_data)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    79886412  1.0007e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var2    79886412  6.2603e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var3    79886412  2.1974e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var4    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var5    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var6    79886412  4.1031e+08  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var7    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var8    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+=== hllc / full  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/hllc_run1)
+A = $WORK/results/A/baseline/hllc_run1 (restart_data)
+B = $WORK/results/final/runs/hllc_full_rep1 (restart_data)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    79886412  1.0007e+03  1.3868e-10  1.3858e-13  9.4885e+63   False    0
+          var2    79886412  6.2603e+00  3.2606e-11  5.2084e-12  1.4973e+29   False    0
+          var3    79886412  2.1974e+03  4.6257e-08  2.1050e-11 5.9452e+284   False    0
+          var4    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287   False    0
+          var5    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287   False    0
+          var6    79886412  4.1031e+08  4.8069e-05  1.1715e-13  1.8854e-10   False    0
+          var7    79886412  1.0000e+00  1.3860e-13  1.3860e-13  9.4885e+63   False    0
+          var8    79886412  1.0000e+00  1.3911e-13  1.3911e-13  1.4973e+29   False    0
+BITWISE_IDENTICAL=False  WITHIN_TOL(rtol=1e-12,atol=0.0)=False
+exit=1
+=== hllc / baseline_co  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/hllc_run1)
+A = $WORK/results/A/baseline/hllc_run1 (restart_data)
+B = $WORK/results/final/runs/hllc_baseline_co_rep1 (restart_data)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    79886412  1.0007e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var2    79886412  6.2603e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var3    79886412  2.1974e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var4    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var5    79886412  1.3419e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var6    79886412  4.1031e+08  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var7    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var8    79886412  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+=== hllc / full_co  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/hllc_run1)
+A = $WORK/results/A/baseline/hllc_run1 (restart_data)
+B = $WORK/results/final/runs/hllc_full_co_rep1 (restart_data)
+step = 60
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    79886412  1.0007e+03  1.3868e-10  1.3858e-13  9.4885e+63   False    0
+          var2    79886412  6.2603e+00  3.2606e-11  5.2084e-12  1.4973e+29   False    0
+          var3    79886412  2.1974e+03  4.6257e-08  2.1050e-11 5.9452e+284   False    0
+          var4    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287   False    0
+          var5    79886412  1.3419e+03  8.3164e-08  6.1976e-11 4.0631e+287   False    0
+          var6    79886412  4.1031e+08  4.8069e-05  1.1715e-13  1.8854e-10   False    0
+          var7    79886412  1.0000e+00  1.3860e-13  1.3860e-13  9.4885e+63   False    0
+          var8    79886412  1.0000e+00  1.3911e-13  1.3911e-13  1.4973e+29   False    0
+BITWISE_IDENTICAL=False  WITHIN_TOL(rtol=1e-12,atol=0.0)=False
+exit=1
+=== visc / baseline  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/visc_run1)
+A = $WORK/results/A/baseline/visc_run1 (restart_data)
+B = $WORK/results/final/runs/visc_baseline_rep1 (restart_data)
+step = 40
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    48191617  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var2    48191617  3.3966e-15  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var3    48191617 2.2251e-308  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var4    48191617 2.2251e-308  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var5    48191617  3.5152e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var6    48191617  4.0000e-05  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var7    48191617  9.5493e-02  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var8    48191617  3.1058e-13  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+=== visc / bitwise  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/visc_run1)
+A = $WORK/results/A/baseline/visc_run1 (restart_data)
+B = $WORK/results/final/runs/visc_bitwise_rep1 (restart_data)
+step = 40
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    48191617  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var2    48191617  3.3966e-15  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var3    48191617 2.2251e-308  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var4    48191617 2.2251e-308  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var5    48191617  3.5152e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var6    48191617  4.0000e-05  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var7    48191617  9.5493e-02  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var8    48191617  3.1058e-13  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+=== visc / full  (rep1 vs lane-A baseline reference $WORK/results/A/baseline/visc_run1)
+A = $WORK/results/A/baseline/visc_run1 (restart_data)
+B = $WORK/results/final/runs/visc_full_rep1 (restart_data)
+step = 40
+           var       ncell      max|A|     max_abs  abs/max|A| max_ptw_rel bitwise  nan
+          var1    48191617  1.0000e+00  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var2    48191617  3.3966e-15  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var3    48191617 2.2251e-308  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var4    48191617 2.2251e-308  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var5    48191617  3.5152e+03  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var6    48191617  4.0000e-05  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var7    48191617  9.5493e-02  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+          var8    48191617  3.1058e-13  0.0000e+00  0.0000e+00  0.0000e+00    True    0
+BITWISE_IDENTICAL=True  WITHIN_TOL(rtol=1e-12,atol=0.0)=True
+exit=0
+CORRECT_DONE

@@ -1,0 +1,17 @@
+id	commit_or_flags	what	grind_reps_ns	grind_median_ns	gain_vs_base_pct	correctness	kept	log
+B0	hw-baseline ce4b191d	baseline	0.66193,0.66084,0.66098	0.66098	0	ref	-	runs/base_hllc
+C1	7b0fd038	HLLC in-place flux store + skip finalize copy + vel_src only if consumed	0.63720,0.63609,0.63788	0.63720	-3.60	bitwise identical (compare_output, 8 vars, step 20)	kept	runs/c1_hllc
+C2	a64ec06d	RK stage update collapse(3)+seq eq loop	0.63335,0.63240,0.63278	0.63278	-4.27 (-0.69 vs C1)	bitwise identical	kept	runs/c2_hllc
+CO0	hw-baseline + --case-optimization (upstream feature)	build: ./mfc.sh build --gpu acc -t simulation --case-optimization --input benchmarks/5eq_rk3_weno3_hllc/case.py	0.32636,0.32615,0.32634	0.32634	-50.63 (2.03x)	bitwise identical to non-case-opt baseline	config	runs/base_co_hllc
+C3	CMake: target_compile/link_options(simulation -gpu=maxregcount:128) on top of C2	global GPU register cap 128 (HLLC 196->98-128, WENO ->111-123, conv ->94 regs, no LOCAL spill)	0.63355,0.63320,0.63327	0.63327	+0.08 vs C2 (no gain)	bitwise identical	reverted	runs/c3r128_hllc
+CO2	a64ec06d (C1+C2) + --case-optimization	lane-C code on top of case-opt	0.29688,0.29712,0.29715	0.29712	-55.05 vs B0; -8.95 vs CO0	bitwise identical	config	runs/c2_co_hllc
+C4	4c345b61	cmake: -Minline=...,totalsize:200000,maxsize:5000 for GPU target	0.61630,0.61730,0.61680	0.61680	-6.68 (-2.53 vs C2)	bitwise identical	kept	runs/c4inl_hllc
+C5	1e5bb943	m_eos: stiffened-gas fast path in s_compute_mixture_coefficients	0.61128,0.61142,0.61164	0.61142	-7.50 (-0.87 vs C4)	bitwise identical	kept	runs/c5eos_hllc
+CO5	1e5bb943 (C1+C2+C4+C5) + --case-optimization	final lane-C on top of case-opt	0.27533,0.27510,0.27546	0.27533	-58.35 vs B0 (2.40x); -15.63 vs CO0 (1.185x)	bitwise identical	config	runs/c5_co_hllc
+T1	1e5bb943 non-case-opt build	./mfc.sh test --no-build --gpu acc -j 4 --only riemann_solver=2 -- --binary mpirun	-	-	-	45/45 passed (GPU)	-	test_hllc.log
+C6a	(uncommitted)	make private m_eos device helpers public (test of 'missing prototype during crossing files' hypothesis)	-	-	-	device code unchanged (HLLC PTX still 7 calls to s_compute_mixture_coefficients/s_compute_speed_of_sound)	reverted, not timed	build_c6pub.log
+C6b	(uncommitted)	remove redundant acc loop seq inside the two EOS routines (same hypothesis test)	-	-	-	device code unchanged (PTX identical call count)	reverted, not timed	build_c6loop.log
+T2	1e5bb943 (HEAD rebuild) non-case-opt	--only Viscous	-	-	-	62/63 passed; 1 'execution failed' = MPI Consistency 3D Viscous (2 ranks; mpirun had 1 slot in the 1-task srun step)	-	test_visc.log
+T3	1e5bb943 (HEAD rebuild) non-case-opt	--only Hypoelasticity 3D	-	-	-	16/17 passed (706+ skipped); 1 'execution failed' = MPI Consistency 3D Hypoelasticity (same slot issue)	-	test_hypo3d.log
+D1	drift check (19:10-19:20, back-to-back)	baseline again vs HEAD 1e5bb943 rebuild	base 0.65992,0.66078,0.66084 | head 0.61139,0.61116,0.61175	base 0.66078 | head 0.61139	-7.47	HEAD bitwise identical to baseline output	-	runs/base2_hllc, runs/head_hllc
+T4	1e5bb943 (HEAD rebuild)	re-run of the 2 MPI Consistency tests with OMPI_MCA_rmaps_base_oversubscribe=true (2 ranks share 1 GPU)	-	-	-	2/2 passed -> all 125 distinct tests run pass	-	test_mpi2.log

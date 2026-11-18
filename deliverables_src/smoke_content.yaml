@@ -1,0 +1,140 @@
+# ============================================================================
+# SMOKE TEST deck (3 slides) for the pipeline; real deck = content.yaml
+# Coding-Adv-HW（MFC on NVIDIA H200）簡報 / 影片 / 講稿 的「唯一內容來源」
+#   改數字 → 改這個檔 → bash $HW/deliverables_src/make_all.sh 重生全部產物
+# 數字來源（DATA RULE：只用這些檔裡的數字，不自己編）：
+#   $HW/results/{A,B,C}/summary.md、$HW/results/final/summary.md、
+#   $WORK/BUILD_RECIPE.md、$HW/AGENT_LOG.md；MFC 本身的描述來自 MFC repo 的 README / docs / 原始碼
+#   還沒有的數字一律寫 TODO(...)；圖表資料含 TODO 時 make_charts.py 會畫「TODO：等待結果檔」佔位圖
+#
+# ★ 會被替換的數字集中在 `vars:`（文字與講稿用 ${名稱} 引用）以及 charts 的資料列。
+# 文字標記：<b>..</b> 強調色粗體　<w>..</w> 警示色粗體　<m>..</m> 灰色
+# 講稿標記：{顯示文字|念法}；句子以 。！？ 切開，每句單獨合成並快取
+# 旁白會送到外部 TTS 服務：不得含姓名、學號、帳號、email、主機名（tts.py 會擋）
+# 版面：13.333 x 7.5 in；box = [x, y, w, h]；內容區 y 1.75 ~ 6.6（以下會被影片字幕蓋住）
+# ============================================================================
+
+vars:
+  # --- 測資與度量（results/A/summary.md）
+  case_name: 5eq_rk3_weno3_hllc
+  case_desc: 'MFC 官方 benchmark：3D 空氣中的震波撞擊水滴（2 種流體）\n5 方程模型、mapped WENO3、HLLC、RK3、雙精度'
+  grid: TODO(格點數)
+  n_eq: TODO(方程數 sys_size)
+  steps: TODO(步數)
+  # --- 環境（BUILD_RECIPE.md）
+  nvhpc: '26.3'
+  mfc_commit: ce4b191d
+  mfc_ver: v5.7.1
+  build_cmd: './mfc.sh build --gpu acc -j 12 -t pre_process simulation'
+  # --- baseline（results/A）
+  base_grind: TODO(baseline grindtime)
+  base_spread: TODO(3 次量測範圍)
+  base_exec: TODO(simulation 執行秒數)
+  # --- profile（results/A）
+  prof_top: TODO(最耗時的 kernel / 階段)
+  prof_top_pct: TODO(佔比)
+  # --- 各項優化（results/B、results/C、results/final）
+  opt1_short: TODO(優化 1 短名)
+  opt1_title: TODO(優化 1 一句話標題)
+  opt1_before: TODO(前)
+  opt1_after: TODO(後)
+  opt1_spd: TODO(倍率)
+  opt2_short: TODO(優化 2 短名)
+  opt2_title: TODO(優化 2 一句話標題)
+  opt2_before: TODO(前)
+  opt2_after: TODO(後)
+  opt2_spd: TODO(倍率)
+  opt3_short: TODO(優化 3 短名)
+  opt3_title: TODO(優化 3 一句話標題)
+  opt3_before: TODO(前)
+  opt3_after: TODO(後)
+  opt3_spd: TODO(倍率)
+  # --- 總結果（results/final）
+  final_grind: TODO(最終 grindtime)
+  spd_total: TODO(總加速倍率)
+  n_regress: TODO(regression test 通過數)
+  cmp_tol: TODO(輸出比對容忍度 / 是否逐位元相同)
+
+meta:
+  title: MFC 在 NVIDIA H200 上的 GPU 效能優化
+  glossary: '**MFC** = Multi-component Flow Code（本作業優化的程式）；**grindtime** = MFC 官方效能指標，每格點、每方程、每次 RHS 計算的平均耗時（ns）；**RHS** = right-hand side，半離散方程的右手邊項；**WENO** = Weighted Essentially Non-Oscillatory 高階重建；**HLLC** = Harten–Lax–van Leer–Contact 近似 Riemann solver；**RK3** = 三階 Runge–Kutta 時間積分；**lane A/B/C/D** = 四條平行工作線（見第 13 頁）。'
+  author: moneychen168
+  font: Microsoft JhengHei        # pptx 字型名；伺服器渲染時 fontconfig 對應到 Noto Sans CJK TC
+  voice: zh-CN-YunyangNeural      # 男聲。台灣男聲 zh-TW-YunJheNeural 11/18 服務端故障，使用者決定改用此聲；沒有女聲備援
+  rate: '+0%'
+  lead_s: 0.6
+  gap_s: 0.25
+  tail_s: 0.9
+  subtitle_max_chars: 30
+
+theme:
+  ink: '12263A'
+  text: '2B3A4B'
+  muted: '64748B'
+  accent: '0E7C7B'
+  accent_tint: 'E3F1F0'
+  warn: 'C2410C'
+  warn_tint: 'FBECE4'
+  card: 'F2F4F7'
+  line: 'D5DBE3'
+  dark_text: 'FFFFFF'
+  dark_muted: 'A9BCD0'
+  dark_accent: '6FD3CC'
+
+charts:
+  smoke:
+    kind: grouped_hbar
+    xlabel: 管線測試用的示意值（不是量測數據）
+    fmt: '{v:g}'
+    categories: [甲, 乙, 丙]
+    series:
+      - {name: 示意 A, cls: muted, values: [1, 2, 3]}
+      - {name: 示意 B, cls: accent, values: [2, 3, 4]}
+
+slides:
+  - id: title
+    layout: title
+    kicker: 管線測試 · MFC · NVIDIA H200
+    title: '交付物管線測試\n簡報、旁白、字幕、影片一次產生'
+    subtitle: 三頁測試簡報，用來確認男聲旁白與影片輸出都正常
+    author: 管線測試
+    chips:
+      - {value: 'pptx', label: 原生可編輯文字與講者備註}
+      - {value: 'mp4', label: 1080p 影片，字幕燒進畫面}
+      - {value: 'srt', label: 另附字幕檔}
+    notes: |
+      大家好，這是交付物管線的測試影片。這一頁是封面，下面會用三頁簡報確認整條流程：先把內容檔轉成簡報，再用 {LibreOffice|Libre Office} 轉成圖片，最後把旁白和字幕合成影片。旁白每一句話分開合成，並且依照文字內容做快取，只有改過的句子才會重新請求。效能指標是 grindtime，也就是每個格點、每條方程、每次右手邊計算平均花幾奈秒。
+
+  - id: chart
+    layout: content
+    kicker: 測試
+    title: 圖表與項目符號
+    blocks:
+      - type: image
+        box: [0.6, 1.75, 6.6, 4.8]
+        chart: smoke
+      - type: bullets
+        box: [7.5, 1.9, 5.2, 4.6]
+        size: 18
+        items:
+          - '<b>圖表</b>由 make_charts.py 產生'
+          - '<b>文字</b>是原生 pptx 文字框'
+          - '<w>注意</w>：左圖是示意值，不是量測數據'
+    notes: |
+      第二頁測試圖表和項目符號。左邊的圖由 matplotlib 依照內容檔裡的資料列產生，這裡用的是示意值，不是任何量測數據。右邊是原生的簡報文字框。正式版本的數字一律從各條工作線的結果檔讀取，不會手動填寫。{MFC|M F C} 每一步要做變數轉換、{WENO|WENO} 重建、用 Riemann solver 算格面通量，再用三階 Runge-Kutta 更新。
+
+  - id: end
+    layout: closing
+    kicker: 結尾
+    title: 管線測試結束
+    columns:
+      - heading: 檢查項目
+        items:
+          - 影片長度、解析度、音軌
+          - 字幕與旁白是否同步
+      - heading: 下一步
+        items:
+          - 換成正式的十五頁內容
+          - 從結果檔填入數字
+    notes: |
+      最後一頁。測試完成後，會檢查影片長度、解析度和音軌是否存在，以及字幕和旁白有沒有對齊。所有運算都在預先配置的 {SLURM|slurm} 佔位 job 裡執行，不在登入節點運算。接下來就把內容換成正式的簡報，並從結果檔填入數字。謝謝收看。

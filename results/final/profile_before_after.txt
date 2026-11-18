@@ -1,0 +1,20 @@
+# PRIMARY (5eq_rk3_weno3_hllc 683x342x342), nsys, 10 steps = 30 RHS evals, both on <gpu-node> (holder 799601)
+# baseline: $WORK/results/A/profile_hllc  (ce4b191d)
+# hw-opt-full: $WORK/results/final/profile_hllc_full_node004  (3c8bcc94)
+# kernel lines shift in hw-opt-full: weno 983->992, hllc 894->906, tvd_rk 505->508; finalize copies removed
+total_kernel_s	11.820	6.535	ratio 1.809
+group	base_s	base_%	full_s	full_%	speedup
+WENO3 m_weno.fpp:983(base)/992(full)	6.009	50.8	1.654	25.3	3.63
+HLLC m_riemann_solver_hllc.fpp:894/906	3.736	31.6	3.263	49.9	1.14
+cons->prim m_variables_conversion.fpp:420	0.485	4.1	0.480	7.3	1.01
+advection source m_rhs.fpp (6 kernels)	0.642	5.4	0.642	9.8	1.00
+finalize copies m_riemann_state.fpp	0.379	3.2	0.000	0.0	inf
+RK update m_time_steppers.fpp:505/508	0.338	2.9	0.265	4.0	1.28
+RHS-entry copy m_rhs.fpp:602	0.108	0.9	0.108	1.7	1.00
+other	0.123	1.0	0.123	1.9	1.00
+nvtx:TIMESTEP	11.823		6.531		1.81
+nvtx:COMPUTE-RHS	11.482		6.264		1.83
+nvtx:RHS-RECONSTRUCTION	6.022		1.661		3.63
+nvtx:RHS-RIEMANN-SOLVER	4.136		3.278		1.26
+nvtx:RHS-ADVECTION-SRC	0.701		0.704		1.00
+nvtx:RHS-CONVERT	0.487		0.486		1.00

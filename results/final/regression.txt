@@ -1,0 +1,24 @@
+# GPU regression on hw-opt-full (HEAD=3c8bcc948b75016d04b9b0811f48a2d61919ebcd), MFC tree $WORK/MFC, holder 799603 (<gpu-node>, 1x H200)
+# env: source $HW/jobs/env.sh (NVHPC 26.3, MFC_CUDA_CC=90); OMPI_MCA_rmaps_base_oversubscribe=true
+# build: ./mfc.sh build --gpu acc -j 12 -t pre_process simulation   (log $WORK/results/final/logs/regress_build.log)
+
+./mfc.sh test --no-build --gpu acc -j 6 --max-attempts 1 --only riemann_solver=2 -- --binary mpirun
+  Only riemann_solver=2 (45 tests): 45 passed, 0 failed, 728 skipped; EXIT=0   log: $WORK/results/final/logs/test_riemann_solver_2.log
+
+./mfc.sh test --no-build --gpu acc -j 6 --max-attempts 1 --only weno_order=3 -- --binary mpirun
+  Only weno_order=3 (9 tests): 9 passed, 0 failed, 764 skipped; EXIT=0   log: $WORK/results/final/logs/test_weno_order_3.log
+
+./mfc.sh test --no-build --gpu acc -j 6 --max-attempts 1 --only weno_order=5 -- --binary mpirun
+  Only weno_order=5 (22 tests): 22 passed, 0 failed, 751 skipped; EXIT=0   log: $WORK/results/final/logs/test_weno_order_5.log
+
+./mfc.sh test --no-build --gpu acc -j 8 --max-attempts 1 --no-chemistry --only 3D -- --binary mpirun  (holder 799601, HEAD=3c8bcc948b75016d04b9b0811f48a2d61919ebcd)
+  Only 3D (232 tests): 232 passed, 0 failed, 537 skipped; EXIT=0   log: $WORK/results/final/logs/test_3D.log
+
+./mfc.sh test --no-build --gpu acc -j 8 --max-attempts 1 --no-chemistry -- --binary mpirun   (HEAD=3c8bcc948b75016d04b9b0811f48a2d61919ebcd, OMPI_MCA_rmaps_base_oversubscribe=true)
+  FULL SUITE (704 tests after --no-chemistry; holder 799603): STILL RUNNING at 20:30 — 552/704 completed, 0 failure/error lines so far. Final pass/fail table will be appended to $WORK/results/final/logs/test_full.log (and EXIT=, REGRESS_FULL_DONE marker) when it ends (~20:40).
+  first attempt without --no-chemistry aborted before running anything (chemistry-variant builds missing): $WORK/results/final/logs/test_full_attempt1_nochem_missing.log
+  note: tests 340-566 (3D block) of the full run duplicate the separate '--only 3D' run (232/232 passed), which finished before the full run reached them.
+
+# reference: lane B ran the full suite on lane-B (B1-B4) HEAD: 702 passed, 2 failed (MPI oversubscribe execution failures), 61 skipped — $WORK/results/B/test_full_b4.log
+
+[orchestrator, 20:55] Full suite (--no-chemistry) finished: 704 passed / 0 failed / 61 skipped (765 total, 52m40s). Source: logs/test_full.log Test Summary.

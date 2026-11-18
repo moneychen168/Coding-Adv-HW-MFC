@@ -22,6 +22,10 @@ module m_riemann_state
     !> @{
     real(wp), allocatable, dimension(:,:,:,:) :: flux_rsx_vf, flux_src_rsx_vf
     $:GPU_DECLARE(create='[flux_rsx_vf, flux_src_rsx_vf]')
+
+    !> Host-side flag: set by a solver whose kernel already stored flux_vf and flux_src_vf(adv%beg) in place, so
+    !! s_finalize_riemann_solver skips the (identically indexed) reshape copy of those two sets.
+    logical :: flux_written_direct = .false.
     !> @}
 
     !> The cell-boundary values of the geometrical source flux that are computed through the chosen Riemann problem solver by using
@@ -1345,18 +1349,24 @@ contains
                 ! Reshaping Outputted Data in y-direction
 
                 if (norm_dir == 2) then
-                    $:GPU_PARALLEL_LOOP(collapse=3)
-                    do l = is3%beg, is3%end
-                        do j = is1%beg, is1%end
-                            do k = is2%beg, is2%end
-                                $:GPU_LOOP(parallelism='[seq]')
-                                do i = 1, sys_size
-                                    flux_vf(i)%sf(k, j, l) = flux_${INFIX}$rsx_vf(k, j, l, i)
+                    #:if SUFFIX == ''
+                        if (.not. flux_written_direct) then
+                        #:endif
+                        $:GPU_PARALLEL_LOOP(collapse=3)
+                        do l = is3%beg, is3%end
+                            do j = is1%beg, is1%end
+                                do k = is2%beg, is2%end
+                                    $:GPU_LOOP(parallelism='[seq]')
+                                    do i = 1, sys_size
+                                        flux_vf(i)%sf(k, j, l) = flux_${INFIX}$rsx_vf(k, j, l, i)
+                                    end do
                                 end do
                             end do
                         end do
-                    end do
-                    $:END_GPU_PARALLEL_LOOP()
+                        $:END_GPU_PARALLEL_LOOP()
+                        #:if SUFFIX == ''
+                        end if
+                    #:endif
 
                     if (cyl_coord) then
                         $:GPU_PARALLEL_LOOP(collapse=4)
@@ -1373,15 +1383,17 @@ contains
                     end if
 
                     #:if SUFFIX == ''
-                        $:GPU_PARALLEL_LOOP(collapse=3)
-                        do l = is3%beg, is3%end
-                            do j = is1%beg, is1%end
-                                do k = is2%beg, is2%end
-                                    flux_src_vf(eqn_idx%adv%beg)%sf(k, j, l) = flux_src_rsx_vf(k, j, l, eqn_idx%adv%beg)
+                        if (.not. flux_written_direct) then
+                            $:GPU_PARALLEL_LOOP(collapse=3)
+                            do l = is3%beg, is3%end
+                                do j = is1%beg, is1%end
+                                    do k = is2%beg, is2%end
+                                        flux_src_vf(eqn_idx%adv%beg)%sf(k, j, l) = flux_src_rsx_vf(k, j, l, eqn_idx%adv%beg)
+                                    end do
                                 end do
                             end do
-                        end do
-                        $:END_GPU_PARALLEL_LOOP()
+                            $:END_GPU_PARALLEL_LOOP()
+                        end if
 
                         ! Copy the per-fluid flux_src entries only for the alpha-interface representation. HLLD
                         ! (adv_src_mode_none) writes only the adv%beg row, so its per-fluid entries are never
@@ -1402,18 +1414,24 @@ contains
                     #:endif
                     ! Reshaping Outputted Data in z-direction
                 else if (norm_dir == 3) then
-                    $:GPU_PARALLEL_LOOP(collapse=3)
-                    do j = is1%beg, is1%end
-                        do k = is2%beg, is2%end
-                            do l = is3%beg, is3%end
-                                $:GPU_LOOP(parallelism='[seq]')
-                                do i = 1, sys_size
-                                    flux_vf(i)%sf(l, k, j) = flux_${INFIX}$rsx_vf(l, k, j, i)
+                    #:if SUFFIX == ''
+                        if (.not. flux_written_direct) then
+                        #:endif
+                        $:GPU_PARALLEL_LOOP(collapse=3)
+                        do j = is1%beg, is1%end
+                            do k = is2%beg, is2%end
+                                do l = is3%beg, is3%end
+                                    $:GPU_LOOP(parallelism='[seq]')
+                                    do i = 1, sys_size
+                                        flux_vf(i)%sf(l, k, j) = flux_${INFIX}$rsx_vf(l, k, j, i)
+                                    end do
                                 end do
                             end do
                         end do
-                    end do
-                    $:END_GPU_PARALLEL_LOOP()
+                        $:END_GPU_PARALLEL_LOOP()
+                        #:if SUFFIX == ''
+                        end if
+                    #:endif
                     #:if SUFFIX == ''
                         if (grid_geometry == 3) then
                             $:GPU_PARALLEL_LOOP(collapse=4)
@@ -1429,15 +1447,17 @@ contains
                             $:END_GPU_PARALLEL_LOOP()
                         end if
 
-                        $:GPU_PARALLEL_LOOP(collapse=3)
-                        do j = is1%beg, is1%end
-                            do k = is2%beg, is2%end
-                                do l = is3%beg, is3%end
-                                    flux_src_vf(eqn_idx%adv%beg)%sf(l, k, j) = flux_src_rsx_vf(l, k, j, eqn_idx%adv%beg)
+                        if (.not. flux_written_direct) then
+                            $:GPU_PARALLEL_LOOP(collapse=3)
+                            do j = is1%beg, is1%end
+                                do k = is2%beg, is2%end
+                                    do l = is3%beg, is3%end
+                                        flux_src_vf(eqn_idx%adv%beg)%sf(l, k, j) = flux_src_rsx_vf(l, k, j, eqn_idx%adv%beg)
+                                    end do
                                 end do
                             end do
-                        end do
-                        $:END_GPU_PARALLEL_LOOP()
+                            $:END_GPU_PARALLEL_LOOP()
+                        end if
 
                         ! Copy the per-fluid flux_src entries only for the alpha-interface representation. HLLD
                         ! (adv_src_mode_none) writes only the adv%beg row, so its per-fluid entries are never
@@ -1457,29 +1477,37 @@ contains
                         end if
                     #:endif
                 else if (norm_dir == 1) then
-                    $:GPU_PARALLEL_LOOP(collapse=3)
-                    do l = is3%beg, is3%end
-                        do k = is2%beg, is2%end
-                            do j = is1%beg, is1%end
-                                $:GPU_LOOP(parallelism='[seq]')
-                                do i = 1, sys_size
-                                    flux_vf(i)%sf(j, k, l) = flux_${INFIX}$rsx_vf(j, k, l, i)
-                                end do
-                            end do
-                        end do
-                    end do
-                    $:END_GPU_PARALLEL_LOOP()
-
                     #:if SUFFIX == ''
+                        if (.not. flux_written_direct) then
+                        #:endif
                         $:GPU_PARALLEL_LOOP(collapse=3)
                         do l = is3%beg, is3%end
                             do k = is2%beg, is2%end
                                 do j = is1%beg, is1%end
-                                    flux_src_vf(eqn_idx%adv%beg)%sf(j, k, l) = flux_src_rsx_vf(j, k, l, eqn_idx%adv%beg)
+                                    $:GPU_LOOP(parallelism='[seq]')
+                                    do i = 1, sys_size
+                                        flux_vf(i)%sf(j, k, l) = flux_${INFIX}$rsx_vf(j, k, l, i)
+                                    end do
                                 end do
                             end do
                         end do
                         $:END_GPU_PARALLEL_LOOP()
+                        #:if SUFFIX == ''
+                        end if
+                    #:endif
+
+                    #:if SUFFIX == ''
+                        if (.not. flux_written_direct) then
+                            $:GPU_PARALLEL_LOOP(collapse=3)
+                            do l = is3%beg, is3%end
+                                do k = is2%beg, is2%end
+                                    do j = is1%beg, is1%end
+                                        flux_src_vf(eqn_idx%adv%beg)%sf(j, k, l) = flux_src_rsx_vf(j, k, l, eqn_idx%adv%beg)
+                                    end do
+                                end do
+                            end do
+                            $:END_GPU_PARALLEL_LOOP()
+                        end if
 
                         ! Copy the per-fluid flux_src entries only for the alpha-interface representation. HLLD
                         ! (adv_src_mode_none) writes only the adv%beg row, so its per-fluid entries are never
